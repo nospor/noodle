@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"noodle/internal/database"
@@ -14,6 +15,7 @@ import (
 
 type ArticleModel struct {
 	articlesList list.Model
+	contentViewport viewport.Model
 	state        *AppState
 	width        int
 	height       int
@@ -40,11 +42,18 @@ func NewArticleModel(state *AppState) *ArticleModel {
 	m.articlesList.SetShowStatusBar(false)
 	m.articlesList.SetFilteringEnabled(false)
 
+	// Initialize content viewport
+	m.contentViewport = viewport.New(0, 0)
+
 	// Set width/height if available
 	if state.Width > 0 && state.Height > 0 {
 		leftWidth := state.Width / 2
+		rightWidth := state.Width - leftWidth - 4
+		contentHeight := state.Height - 6
 		m.articlesList.SetWidth(leftWidth - 4)
-		m.articlesList.SetHeight(state.Height - 6)
+		m.articlesList.SetHeight(contentHeight)
+		m.contentViewport.Width = rightWidth - 6
+		m.contentViewport.Height = contentHeight
 	}
 
 	// Load articles for current feed
@@ -64,7 +73,12 @@ func NewArticleModel(state *AppState) *ArticleModel {
 			m.articlesList.Select(state.SelectedArticleIndex)
 			// Load the selected article's content
 			m.state.CurrentArticle = &articles[state.SelectedArticleIndex]
+			m.updateContentViewport()
+		} else {
+			m.contentViewport.SetContent("No articles available")
 		}
+	} else {
+		m.contentViewport.SetContent("No article selected")
 	}
 
 	return m
@@ -75,6 +89,7 @@ func (m *ArticleModel) Init() tea.Cmd {
 	if len(m.state.Articles) > 0 && m.state.SelectedArticleIndex < len(m.state.Articles) {
 		if m.state.CurrentArticle == nil {
 			m.state.CurrentArticle = &m.state.Articles[m.state.SelectedArticleIndex]
+			m.updateContentViewport()
 		}
 	}
 	return nil
@@ -83,7 +98,18 @@ func (m *ArticleModel) Init() tea.Cmd {
 func (m *ArticleModel) loadArticleContent(article database.Article) tea.Cmd {
 	return func() tea.Msg {
 		m.state.CurrentArticle = &article
+		m.updateContentViewport()
 		return loadArticleContentMsg{article: &article}
+	}
+}
+
+func (m *ArticleModel) updateContentViewport() {
+	if m.state.CurrentArticle != nil {
+		content := renderArticleContent(m.state.CurrentArticle)
+		m.contentViewport.SetContent(content)
+		m.contentViewport.GotoTop()
+	} else {
+		m.contentViewport.SetContent("No article selected")
 	}
 }
 
@@ -95,8 +121,13 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.Width = msg.Width
 		m.state.Height = msg.Height
 		leftWidth := msg.Width / 2
+		rightWidth := msg.Width - leftWidth - 4
+		contentHeight := msg.Height - 6
 		m.articlesList.SetWidth(leftWidth - 4)
-		m.articlesList.SetHeight(msg.Height - 6)
+		m.articlesList.SetHeight(contentHeight)
+		m.contentViewport.Width = rightWidth - 6
+		m.contentViewport.Height = contentHeight
+		m.updateContentViewport()
 		return m, nil
 
 	case loadArticleContentMsg:
@@ -140,6 +171,10 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			mainModel := NewMainModel(m.state)
 			return mainModel, mainModel.Init()
 
+		case key.Matches(msg, keys.Right), msg.String() == "l":
+			// 'l' and right arrow do nothing in article view
+			return m, nil
+
 		case msg.String() == "enter":
 			// Enter doesn't do anything special in article view
 			return m, nil
@@ -170,15 +205,17 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		// Ignore 'l' and right arrow - do nothing
-		if msg.String() == "l" || key.Matches(msg, keys.Right) {
-			return m, nil
+		// Handle PgUp/PgDn - scroll content viewport
+		if msg.String() == "pgup" || msg.String() == "pgdown" {
+			var cmd tea.Cmd
+			m.contentViewport, cmd = m.contentViewport.Update(msg)
+			return m, cmd
 		}
 
-		// Update list for other keys (including PgUp/PgDn which bubbles handles)
+		// Update list for other keys
 		m.articlesList, _ = m.articlesList.Update(msg)
 		
-		// If list index changed (e.g., from PgUp/PgDn), update selected article
+		// If list index changed, update selected article
 		if m.articlesList.Index() < len(m.state.Articles) && m.articlesList.Index() != m.state.SelectedArticleIndex {
 			m.state.SelectedArticleIndex = m.articlesList.Index()
 			article := m.state.Articles[m.state.SelectedArticleIndex]
@@ -280,15 +317,9 @@ func (m *ArticleModel) View() string {
 	articlesTitle := "Articles"
 	articlesPane := paneStyle.Width(m.width/2 - 2).Render(articlesTitle + "\n" + articlesView)
 
-	// Content pane
+	// Content pane - fixed height matching articles pane
 	contentTitle := "Content"
-	content := ""
-	if m.state.CurrentArticle != nil {
-		content = renderArticleContent(m.state.CurrentArticle)
-	} else {
-		content = "No article selected"
-	}
-	contentPane := paneStyle.Width(m.width/2 - 2).Render(contentTitle + "\n" + content)
+	contentPane := paneStyle.Width(m.width/2 - 2).Height(m.height - 6).Render(contentTitle + "\n" + m.contentViewport.View())
 
 	// Combine panes
 	s.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, articlesPane, contentPane))
@@ -302,7 +333,7 @@ func (m *ArticleModel) View() string {
 	}
 
 	// Help text
-	help := "\n" + helpStyle.Render("j/k: navigate | PgUp/PgDn: page | o: open in browser | r: mark read | u: unread | f: favorite | x: delete | h/Esc: back | q: quit")
+	help := "\n" + helpStyle.Render("j/k: navigate articles | PgUp/PgDn: scroll content/page | o: open | r/u/f/x: actions | h/Esc: back | q: quit")
 	s.WriteString(help)
 
 	return s.String()

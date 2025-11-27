@@ -23,6 +23,7 @@ var (
 	paneStyle         = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("62")).Padding(1, 2)
 	errorStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
 	messageStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("46"))
+	confirmStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Bold(true) // Orange/bold for confirmation
 	// Styles for read/unread articles
 	unreadArticleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("39")) // Bright blue for unread
 	readArticleStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("244")) // Gray for read
@@ -120,6 +121,7 @@ type MainModel struct {
 	width        int
 	height       int
 	activePane   string // "feeds" or "articles"
+	confirmDelete bool  // true when waiting for delete confirmation
 }
 
 type refreshFeedMsg struct {
@@ -359,6 +361,22 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// If in delete confirmation mode, only handle y/n and escape
+		if m.confirmDelete {
+			switch msg.String() {
+			case "y", "Y":
+				if m.activePane == "feeds" && len(m.state.Feeds) > 0 {
+					feed := m.state.Feeds[m.state.SelectedFeedIndex]
+					m.confirmDelete = false
+					return m, m.deleteFeed(feed.URL)
+				}
+			case "n", "N", "esc":
+				m.confirmDelete = false
+				return m, nil
+			}
+			return m, nil
+		}
+
 		if m.state.Error != "" {
 			m.state.Error = ""
 			return m, nil
@@ -462,8 +480,9 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case msg.String() == "d":
 			if m.activePane == "feeds" && len(m.state.Feeds) > 0 {
-				feed := m.state.Feeds[m.state.SelectedFeedIndex]
-				return m, m.deleteFeed(feed.URL)
+				// Start delete confirmation
+				m.confirmDelete = true
+				return m, nil
 			}
 		}
 
@@ -553,8 +572,14 @@ func (m *MainModel) View() string {
 
 	// Footer area: help text + message area
 	// Always render both to maintain consistent height
-	helpText := "j/k: navigate feeds | l: view articles | r: refresh | a: add feed | e: edit | d: delete feed | q: quit"
-	help := "\n" + helpStyle.Render(helpText)
+	var help string
+	if m.confirmDelete {
+		helpText := "Are you sure you want to delete this feed? [y]es / [n]o"
+		help = "\n" + confirmStyle.Render(helpText)
+	} else {
+		helpText := "j/k: navigate feeds | l: view articles | r: refresh | a: add feed | e: edit | d: delete feed | q: quit"
+		help = "\n" + helpStyle.Render(helpText)
+	}
 	s.WriteString(help)
 
 	// Message area - always render exactly one line to prevent layout jumps

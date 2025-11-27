@@ -25,6 +25,11 @@ type loadArticleContentMsg struct {
 	article *database.Article
 }
 
+type favoriteToggledMsg struct {
+	articleID   int64
+	isFavorite  bool
+}
+
 func NewArticleModel(state *AppState) *ArticleModel {
 	m := &ArticleModel{
 		state:  state,
@@ -131,6 +136,31 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case loadArticleContentMsg:
+		return m, nil
+
+	case favoriteToggledMsg:
+		// Update the current article's favorite status immediately
+		if m.state.CurrentArticle != nil && m.state.CurrentArticle.ID == msg.articleID {
+			m.state.CurrentArticle.IsFavorite = msg.isFavorite
+			// Also update it in the articles slice
+			if m.state.SelectedArticleIndex < len(m.state.Articles) {
+				for i := range m.state.Articles {
+					if m.state.Articles[i].ID == msg.articleID {
+						m.state.Articles[i].IsFavorite = msg.isFavorite
+						break
+					}
+				}
+				// Update the list items to reflect the change
+				items := make([]list.Item, len(m.state.Articles))
+				for i, a := range m.state.Articles {
+					items[i] = articleItem{article: a}
+				}
+				m.articlesList.SetItems(items)
+				m.articlesList.Select(m.state.SelectedArticleIndex)
+			}
+			// Refresh the content viewport to show the updated star
+			m.updateContentViewport()
+		}
 		return m, nil
 
 	case tea.KeyMsg:
@@ -243,6 +273,16 @@ func (m *ArticleModel) markRead(articleID int64, isRead bool) tea.Cmd {
 		m.articlesList.SetItems(items)
 		if m.state.SelectedArticleIndex < len(articles) {
 			m.articlesList.Select(m.state.SelectedArticleIndex)
+			// Update the current article to reflect the read status change
+			if m.state.CurrentArticle != nil && m.state.CurrentArticle.ID == articleID {
+				m.state.CurrentArticle.IsRead = isRead
+				// Also update it in the articles slice
+				if m.state.SelectedArticleIndex < len(articles) {
+					m.state.CurrentArticle = &articles[m.state.SelectedArticleIndex]
+				}
+				// Refresh the content viewport to show the updated status
+				m.updateContentViewport()
+			}
 		}
 		return nil
 	}
@@ -253,18 +293,8 @@ func (m *ArticleModel) toggleFavorite(articleID int64, isFavorite bool) tea.Cmd 
 		if err := database.MarkFavorite(articleID, isFavorite); err != nil {
 			return errorMsg{err: err}
 		}
-		// Reload articles
-		articles, _ := database.GetArticles(m.state.CurrentFeedID)
-		m.state.Articles = articles
-		items := make([]list.Item, len(articles))
-		for i, a := range articles {
-			items[i] = articleItem{article: a}
-		}
-		m.articlesList.SetItems(items)
-		if m.state.SelectedArticleIndex < len(articles) {
-			m.articlesList.Select(m.state.SelectedArticleIndex)
-		}
-		return nil
+		// Return a message to update the UI immediately
+		return favoriteToggledMsg{articleID: articleID, isFavorite: isFavorite}
 	}
 }
 

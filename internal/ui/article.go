@@ -185,6 +185,36 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case articleDeletedMsg:
+		// Reload articles from database and update the list immediately
+		articles, _ := database.GetArticles(m.state.CurrentFeedID)
+		m.state.Articles = articles
+		items := make([]list.Item, len(articles))
+		for i, a := range articles {
+			items[i] = articleItem{article: a}
+		}
+		m.articlesList.SetItems(items)
+		if len(articles) > 0 {
+			// Adjust selected index if needed
+			if m.state.SelectedArticleIndex >= len(articles) {
+				m.state.SelectedArticleIndex = len(articles) - 1
+			}
+			m.articlesList.Select(m.state.SelectedArticleIndex)
+			// Update current article
+			if m.state.SelectedArticleIndex < len(articles) {
+				m.state.CurrentArticle = &articles[m.state.SelectedArticleIndex]
+				m.updateContentViewport()
+			} else {
+				m.state.CurrentArticle = nil
+				m.contentViewport.SetContent("No article selected")
+			}
+		} else {
+			m.state.SelectedArticleIndex = -1
+			m.state.CurrentArticle = nil
+			m.contentViewport.SetContent("No articles available")
+		}
+		return m, nil
+
 	case tea.KeyMsg:
 		if m.state.Error != "" {
 			m.state.Error = ""
@@ -285,6 +315,10 @@ type readStatusChangedMsg struct {
 	isRead    bool
 }
 
+type articleDeletedMsg struct {
+	articleID int64
+}
+
 func (m *ArticleModel) markRead(articleID int64, isRead bool) tea.Cmd {
 	return func() tea.Msg {
 		if err := database.MarkRead(articleID, isRead); err != nil {
@@ -310,26 +344,8 @@ func (m *ArticleModel) deleteArticle(articleID int64) tea.Cmd {
 		if err := database.DeleteArticle(articleID); err != nil {
 			return errorMsg{err: err}
 		}
-		// Reload articles
-		articles, _ := database.GetArticles(m.state.CurrentFeedID)
-		m.state.Articles = articles
-		items := make([]list.Item, len(articles))
-		for i, a := range articles {
-			items[i] = articleItem{article: a}
-		}
-		m.articlesList.SetItems(items)
-		if len(articles) > 0 {
-			if m.state.SelectedArticleIndex >= len(articles) {
-				m.state.SelectedArticleIndex = len(articles) - 1
-			}
-			m.articlesList.Select(m.state.SelectedArticleIndex)
-			if m.state.SelectedArticleIndex < len(articles) {
-				m.loadArticleContent(articles[m.state.SelectedArticleIndex])
-			}
-		} else {
-			m.state.CurrentArticle = nil
-		}
-		return nil
+		// Return a message to update the UI immediately
+		return articleDeletedMsg{articleID: articleID}
 	}
 }
 

@@ -11,10 +11,11 @@ import (
 )
 
 type Feed struct {
-	ID         int64
-	URL        string
-	Title      string
-	LastFetched *time.Time
+	ID              int64
+	URL             string
+	Title           string
+	LastFetched     *time.Time
+	LastArticleAdded *time.Time
 }
 
 type Article struct {
@@ -63,7 +64,8 @@ func InitDB() error {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		url TEXT UNIQUE NOT NULL,
 		title TEXT NOT NULL,
-		last_fetched DATETIME
+		last_fetched DATETIME,
+		last_article_added DATETIME
 	);
 
 	CREATE TABLE IF NOT EXISTS articles (
@@ -89,6 +91,32 @@ func InitDB() error {
 		return fmt.Errorf("failed to create schema: %w", err)
 	}
 
+	// Migration: Add last_article_added column to feeds if it doesn't exist
+	var columnExists int
+	checkColumnQuery := `
+		SELECT COUNT(*) FROM pragma_table_info('feeds') 
+		WHERE name = 'last_article_added'
+	`
+	err = db.QueryRow(checkColumnQuery).Scan(&columnExists)
+	if err == nil && columnExists == 0 {
+		migrationQuery := `ALTER TABLE feeds ADD COLUMN last_article_added DATETIME`
+		if _, err := db.Exec(migrationQuery); err != nil {
+			// Ignore error if column already exists
+		}
+	}
+
+	// Migration: Remove is_deleted column from articles if it exists
+	checkDeletedColumnQuery := `
+		SELECT COUNT(*) FROM pragma_table_info('articles') 
+		WHERE name = 'is_deleted'
+	`
+	err = db.QueryRow(checkDeletedColumnQuery).Scan(&columnExists)
+	if err == nil && columnExists > 0 {
+		// SQLite doesn't support DROP COLUMN directly, so we'll need to recreate the table
+		// For now, we'll just ignore it and filter in queries
+		// In production, you might want to do a proper migration
+	}
+
 	return nil
 }
 
@@ -98,13 +126,14 @@ func GetDB() *sql.DB {
 
 func SaveFeed(feed *Feed) error {
 	query := `
-		INSERT INTO feeds (url, title, last_fetched)
-		VALUES (?, ?, ?)
+		INSERT INTO feeds (url, title, last_fetched, last_article_added)
+		VALUES (?, ?, ?, ?)
 		ON CONFLICT(url) DO UPDATE SET
 			title = excluded.title,
-			last_fetched = excluded.last_fetched
+			last_fetched = excluded.last_fetched,
+			last_article_added = COALESCE(excluded.last_article_added, feeds.last_article_added)
 	`
-	result, err := db.Exec(query, feed.URL, feed.Title, feed.LastFetched)
+	result, err := db.Exec(query, feed.URL, feed.Title, feed.LastFetched, feed.LastArticleAdded)
 	if err != nil {
 		return fmt.Errorf("failed to save feed: %w", err)
 	}
@@ -121,12 +150,12 @@ func SaveFeed(feed *Feed) error {
 }
 
 func GetFeedByURL(url string) (*Feed, error) {
-	query := `SELECT id, url, title, last_fetched FROM feeds WHERE url = ?`
+	query := `SELECT id, url, title, last_fetched, last_article_added FROM feeds WHERE url = ?`
 	row := db.QueryRow(query, url)
 
 	var feed Feed
-	var lastFetched sql.NullTime
-	err := row.Scan(&feed.ID, &feed.URL, &feed.Title, &lastFetched)
+	var lastFetched, lastArticleAdded sql.NullTime
+	err := row.Scan(&feed.ID, &feed.URL, &feed.Title, &lastFetched, &lastArticleAdded)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -137,12 +166,15 @@ func GetFeedByURL(url string) (*Feed, error) {
 	if lastFetched.Valid {
 		feed.LastFetched = &lastFetched.Time
 	}
+	if lastArticleAdded.Valid {
+		feed.LastArticleAdded = &lastArticleAdded.Time
+	}
 
 	return &feed, nil
 }
 
 func GetAllFeeds() ([]Feed, error) {
-	query := `SELECT id, url, title, last_fetched FROM feeds ORDER BY title`
+	query := `SELECT id, url, title, last_fetched, last_article_added FROM feeds ORDER BY title`
 	rows, err := db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query feeds: %w", err)
@@ -152,12 +184,15 @@ func GetAllFeeds() ([]Feed, error) {
 	var feeds []Feed
 	for rows.Next() {
 		var feed Feed
-		var lastFetched sql.NullTime
-		if err := rows.Scan(&feed.ID, &feed.URL, &feed.Title, &lastFetched); err != nil {
+		var lastFetched, lastArticleAdded sql.NullTime
+		if err := rows.Scan(&feed.ID, &feed.URL, &feed.Title, &lastFetched, &lastArticleAdded); err != nil {
 			return nil, fmt.Errorf("failed to scan feed: %w", err)
 		}
 		if lastFetched.Valid {
 			feed.LastFetched = &lastFetched.Time
+		}
+		if lastArticleAdded.Valid {
+			feed.LastArticleAdded = &lastArticleAdded.Time
 		}
 		feeds = append(feeds, feed)
 	}
@@ -175,6 +210,19 @@ func DeleteFeedByURL(url string) error {
 }
 
 func SaveArticles(feedID int64, articles []Article) error {
+	// Get the feed to check last_article_added timestamp
+	feedQuery := `SELECT last_article_added FROM feeds WHERE id = ?`
+	var lastArticleAdded sql.NullTime
+	err := db.QueryRow(feedQuery, feedID).Scan(&lastArticleAdded)
+	if err != nil {
+		return fmt.Errorf("failed to get feed: %w", err)
+	}
+
+	var cutoffTime *time.Time
+	if lastArticleAdded.Valid {
+		cutoffTime = &lastArticleAdded.Time
+	}
+
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -196,8 +244,28 @@ func SaveArticles(feedID int64, articles []Article) error {
 	}
 	defer stmt.Close()
 
+	var newestArticleTime *time.Time
 	for _, article := range articles {
 		article.FeedID = feedID
+		
+		// Determine article time (use published_at if available, otherwise current time)
+		var articleTime time.Time
+		if article.PublishedAt != nil {
+			articleTime = *article.PublishedAt
+		} else {
+			articleTime = time.Now()
+		}
+		
+		// Skip articles older than or equal to last_article_added
+		if cutoffTime != nil && !articleTime.After(*cutoffTime) {
+			continue
+		}
+		
+		// Track the newest article time
+		if newestArticleTime == nil || articleTime.After(*newestArticleTime) {
+			newestArticleTime = &articleTime
+		}
+		
 		_, err := stmt.Exec(
 			article.FeedID,
 			article.Title,
@@ -209,6 +277,15 @@ func SaveArticles(feedID int64, articles []Article) error {
 		)
 		if err != nil {
 			return fmt.Errorf("failed to insert article: %w", err)
+		}
+	}
+
+	// Update last_article_added timestamp if we added any new articles
+	if newestArticleTime != nil {
+		updateQuery := `UPDATE feeds SET last_article_added = ? WHERE id = ?`
+		_, err = tx.Exec(updateQuery, newestArticleTime, feedID)
+		if err != nil {
+			return fmt.Errorf("failed to update last_article_added: %w", err)
 		}
 	}
 

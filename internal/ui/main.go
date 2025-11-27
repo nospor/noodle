@@ -227,10 +227,31 @@ func (m *MainModel) refreshFeed(feedURL string) tea.Cmd {
 			return refreshFeedMsg{feedURL: feedURL, err: fmt.Errorf("feed not found in config")}
 		}
 
+		// Get existing feed from database to preserve its ID
+		existingFeed, err := database.GetFeedByURL(feedURL)
+		if err != nil {
+			return refreshFeedMsg{feedURL: feedURL, err: fmt.Errorf("failed to get existing feed: %w", err)}
+		}
+
 		// Convert and save feed
 		dbFeed := feed.ConvertFeedToDBFeed(parsedFeed, feedURL, configFeed.Title)
+		// Preserve the existing feed ID if it exists
+		if existingFeed != nil {
+			dbFeed.ID = existingFeed.ID
+		}
 		if err := database.SaveFeed(dbFeed); err != nil {
 			return refreshFeedMsg{feedURL: feedURL, err: err}
+		}
+
+		// If ID is still 0 after SaveFeed, get it from the database
+		if dbFeed.ID == 0 {
+			updatedFeed, err := database.GetFeedByURL(feedURL)
+			if err != nil {
+				return refreshFeedMsg{feedURL: feedURL, err: fmt.Errorf("failed to get feed ID after save: %w", err)}
+			}
+			if updatedFeed != nil {
+				dbFeed.ID = updatedFeed.ID
+			}
 		}
 
 		// Convert and save articles

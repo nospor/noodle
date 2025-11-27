@@ -2,6 +2,11 @@
 
 A fast and elegant RSS/Atom reader designed for people who love living in the command line. Built with Go and Bubble Tea, Noodle provides a smooth TUI experience powered entirely by your keyboard, with familiar Vim-style controls.
 
+<p float="left">
+  <img src="assets/images/noodle1.png" width="300" />
+  <img src="assets/images/noodle2.png" width="300" />
+</p>
+
 ## Features
 
 ### 🎯 Navigation & UI

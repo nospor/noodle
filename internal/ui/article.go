@@ -286,6 +286,28 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.state.CurrentArticle != nil {
 				return m, m.deleteArticle(m.state.CurrentArticle.ID)
 			}
+
+		case msg.String() == "H":
+			// Jump to previous page
+			m.articlesList.PrevPage()
+			// Update selected article after page change
+			if m.articlesList.Index() < len(m.state.Articles) {
+				m.state.SelectedArticleIndex = m.articlesList.Index()
+				article := m.state.Articles[m.state.SelectedArticleIndex]
+				return m, m.loadArticleContent(article)
+			}
+			return m, nil
+
+		case msg.String() == "L":
+			// Jump to next page
+			m.articlesList.NextPage()
+			// Update selected article after page change
+			if m.articlesList.Index() < len(m.state.Articles) {
+				m.state.SelectedArticleIndex = m.articlesList.Index()
+				article := m.state.Articles[m.state.SelectedArticleIndex]
+				return m, m.loadArticleContent(article)
+			}
+			return m, nil
 		}
 
 		// Handle PgUp/PgDn - scroll content viewport
@@ -387,7 +409,7 @@ func (m *ArticleModel) View() string {
 	}
 
 	// Help text
-	help := "\n" + helpStyle.Render("j/k: navigate articles | PgUp/PgDn: scroll content | o: open in browser | r: mark read | u: mark unread | f: toggle favorite | x: delete | h/Esc: back | q: quit")
+	help := "\n" + helpStyle.Render("j/k: navigate articles | H/L: prev/next page | PgUp/PgDn: scroll content | o: open in browser | r: mark read | u: mark unread | f: toggle favorite | x: delete | h/Esc: back | q: quit")
 	s.WriteString(help)
 
 	return s.String()

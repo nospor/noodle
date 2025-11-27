@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
@@ -19,6 +20,8 @@ type ArticleModel struct {
 	state        *AppState
 	width        int
 	height       int
+	articleViewStartTime *time.Time // Track when article was first viewed
+	timerArticleID int64 // Track which article the timer is for
 }
 
 type loadArticleContentMsg struct {
@@ -30,11 +33,14 @@ type favoriteToggledMsg struct {
 	isFavorite  bool
 }
 
+type autoMarkReadCheckMsg struct{}
+
 func NewArticleModel(state *AppState) *ArticleModel {
 	m := &ArticleModel{
 		state:  state,
 		width:  state.Width,
 		height: state.Height,
+		timerArticleID: -1, // Initialize to invalid ID
 	}
 
 	// Initialize articles list with custom delegate for read/unread styling
@@ -74,8 +80,9 @@ func NewArticleModel(state *AppState) *ArticleModel {
 				state.SelectedArticleIndex = 0
 			}
 			m.articlesList.Select(state.SelectedArticleIndex)
-			// Load the selected article's content
-			m.state.CurrentArticle = &articles[state.SelectedArticleIndex]
+			// Set initial article - timer will be started in Init() or via explicit call
+			article := articles[state.SelectedArticleIndex]
+			m.state.CurrentArticle = &article
 			m.updateContentViewport()
 		} else {
 			m.contentViewport.SetContent("No articles available")
@@ -88,22 +95,43 @@ func NewArticleModel(state *AppState) *ArticleModel {
 }
 
 func (m *ArticleModel) Init() tea.Cmd {
-	// If we have articles and a selected article, ensure content is loaded
+	// Always set up and start the timer for the current article
 	if len(m.state.Articles) > 0 && m.state.SelectedArticleIndex < len(m.state.Articles) {
+		// Ensure CurrentArticle is set
 		if m.state.CurrentArticle == nil {
 			m.state.CurrentArticle = &m.state.Articles[m.state.SelectedArticleIndex]
 			m.updateContentViewport()
+		}
+		// Always reset timer fields and start the timer
+		if m.state.CurrentArticle != nil {
+			now := time.Now()
+			m.articleViewStartTime = &now
+			m.timerArticleID = m.state.CurrentArticle.ID
+			return m.startAutoMarkReadCheck()
 		}
 	}
 	return nil
 }
 
 func (m *ArticleModel) loadArticleContent(article database.Article) tea.Cmd {
-	return func() tea.Msg {
-		m.state.CurrentArticle = &article
-		m.updateContentViewport()
-		return loadArticleContentMsg{article: &article}
-	}
+	now := time.Now()
+	m.articleViewStartTime = &now
+	m.timerArticleID = article.ID // Track which article the timer is for
+	m.state.CurrentArticle = &article
+	m.updateContentViewport()
+	// Start periodic check timer (every 1 second) to check if 5 seconds have passed
+	return tea.Batch(
+		func() tea.Msg {
+			return loadArticleContentMsg{article: &article}
+		},
+		m.startAutoMarkReadCheck(),
+	)
+}
+
+func (m *ArticleModel) startAutoMarkReadCheck() tea.Cmd {
+	return tea.Tick(1*time.Second, func(time.Time) tea.Msg {
+		return autoMarkReadCheckMsg{}
+	})
 }
 
 func (m *ArticleModel) updateContentViewport() {
@@ -134,6 +162,28 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case loadArticleContentMsg:
+		return m, nil
+
+	case autoMarkReadCheckMsg:
+		// Check if we should mark the current article as read
+		// Only mark as read if:
+		// 1. We have a current article
+		// 2. The article is not already read
+		// 3. We're still viewing the same article (timerArticleID matches)
+		// 4. At least 5 seconds have passed since we started viewing it
+		if m.state.CurrentArticle != nil &&
+		   m.articleViewStartTime != nil &&
+		   m.state.CurrentArticle.ID == m.timerArticleID &&
+		   !m.state.CurrentArticle.IsRead {
+			elapsed := time.Since(*m.articleViewStartTime)
+			if elapsed >= 5*time.Second {
+				// Mark as read and stop the periodic check
+				return m, m.markRead(m.state.CurrentArticle.ID, true)
+			}
+			// Continue checking every second
+			return m, m.startAutoMarkReadCheck()
+		}
+		// If article changed or already read, stop checking
 		return m, nil
 
 	case favoriteToggledMsg:
@@ -264,7 +314,11 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case msg.String() == "o":
 			if m.state.CurrentArticle != nil {
-				return m, m.openBrowser(m.state.CurrentArticle.Link)
+				// Open in browser and mark as read
+				return m, tea.Batch(
+					m.openBrowser(m.state.CurrentArticle.Link),
+					m.markRead(m.state.CurrentArticle.ID, true),
+				)
 			}
 
 		case msg.String() == "r":

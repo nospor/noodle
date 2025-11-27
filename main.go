@@ -172,6 +172,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.articleModel = articleModel
 			m.currentModel = articleModel
 			m.state.View = ui.ArticleView
+			// Call Init() on the new model to ensure timer starts
+			initCmd := articleModel.Init()
+			return m, tea.Batch(cmd, initCmd)
 		} else if mainModel, ok := updatedModel.(*ui.MainModel); ok {
 			m.mainModel = mainModel
 			m.currentModel = mainModel

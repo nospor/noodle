@@ -316,8 +316,30 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			items[i] = feedItem{feed: f, unreadCount: unread, totalCount: total}
 		}
 		m.feedsList.SetItems(items)
-		if len(msg.feeds) > 0 && m.state.SelectedFeedIndex < len(msg.feeds) {
-			m.feedsList.Select(m.state.SelectedFeedIndex)
+		if len(msg.feeds) > 0 {
+			// Ensure we have a valid selection index
+			if m.state.SelectedFeedIndex < 0 || m.state.SelectedFeedIndex >= len(msg.feeds) {
+				m.state.SelectedFeedIndex = 0
+			}
+			// Ensure list is properly sized before selecting
+			if m.width > 0 && m.height > 0 {
+				leftWidth := m.width / 2
+				availableHeight := m.height - 8
+				m.feedsList.SetWidth(leftWidth - 6)
+				m.feedsList.SetHeight(availableHeight)
+			}
+			// For index 0, simulate a down then up key press to properly position the list
+			// This works around the scrolling issue with Select(0)
+			if m.state.SelectedFeedIndex == 0 {
+				// Simulate navigation to position list correctly
+				downKey := tea.KeyMsg{Type: tea.KeyDown}
+				upKey := tea.KeyMsg{Type: tea.KeyUp}
+				m.feedsList, _ = m.feedsList.Update(downKey)
+				m.feedsList, _ = m.feedsList.Update(upKey)
+				// Now we should be at index 0 with proper positioning
+			} else {
+				m.feedsList.Select(m.state.SelectedFeedIndex)
+			}
 		}
 		return m, m.loadArticles()
 

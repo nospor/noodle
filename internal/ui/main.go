@@ -21,8 +21,8 @@ var (
 	selectedItemStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("170"))
 	normalItemStyle   = lipgloss.NewStyle() // No padding, default color
 	paneStyle         = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("62")).Padding(1, 2)
-	errorStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Margin(1)
-	messageStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("46")).Margin(1)
+	errorStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+	messageStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("46"))
 	// Styles for read/unread articles
 	unreadArticleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("39")) // Bright blue for unread
 	readArticleStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("244")) // Gray for read
@@ -138,6 +138,8 @@ type loadFeedsMsg struct {
 
 type autoRefreshTickMsg struct{}
 
+type clearMessageMsg struct{}
+
 func NewMainModel(state *AppState) *MainModel {
 	m := &MainModel{
 		state:      state,
@@ -171,7 +173,8 @@ func NewMainModel(state *AppState) *MainModel {
 	if state.Width > 0 && state.Height > 0 {
 		leftWidth := state.Width / 2
 		rightWidth := state.Width - leftWidth - 4
-		availableHeight := state.Height - 6
+		// Reserve space for help text (1 line) and message area (1 line) = 2 lines
+		availableHeight := state.Height - 8
 		m.feedsList.SetWidth(leftWidth - 6)
 		m.feedsList.SetHeight(availableHeight)
 		m.articlesList.SetWidth(rightWidth - 6)
@@ -212,6 +215,12 @@ func (m *MainModel) loadArticles() tea.Cmd {
 func (m *MainModel) startAutoRefresh() tea.Cmd {
 	return tea.Tick(5*time.Second, func(time.Time) tea.Msg {
 		return autoRefreshTickMsg{}
+	})
+}
+
+func (m *MainModel) clearMessageAfter(duration time.Duration) tea.Cmd {
+	return tea.Tick(duration, func(time.Time) tea.Msg {
+		return clearMessageMsg{}
 	})
 }
 
@@ -281,8 +290,8 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.Height = msg.Height
 		leftWidth := msg.Width / 2
 		rightWidth := msg.Width - leftWidth - 4
-		// Account for borders, padding, title, and help text
-		availableHeight := msg.Height - 6
+		// Account for borders, padding, title, help text (1 line), and message area (1 line) = 8 lines total
+		availableHeight := msg.Height - 8
 		m.feedsList.SetWidth(leftWidth - 6)
 		m.feedsList.SetHeight(availableHeight)
 		m.articlesList.SetWidth(rightWidth - 6)
@@ -326,9 +335,8 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state.Error = fmt.Sprintf("Failed to refresh feed: %v", msg.err)
 		} else {
 			m.state.Message = "Feed refreshed successfully"
-			go func() {
-				time.Sleep(2 * time.Second)
-			}()
+			// Clear message after 2 seconds
+			return m, tea.Batch(m.loadFeeds(), m.loadArticles(), m.clearMessageAfter(2*time.Second))
 		}
 		return m, tea.Batch(m.loadFeeds(), m.loadArticles())
 
@@ -341,6 +349,10 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case autoRefreshTickMsg:
 		// Periodically reload feeds and articles to pick up background refresh updates
 		return m, tea.Batch(m.loadFeeds(), m.loadArticles(), m.startAutoRefresh())
+
+	case clearMessageMsg:
+		m.state.Message = ""
+		return m, nil
 
 	case tea.KeyMsg:
 		if m.state.Error != "" {
@@ -541,17 +553,34 @@ func (m *MainModel) View() string {
 	// Combine panes
 	s.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, feedsPane, articlesPane))
 
-	// Error and message
-	if m.state.Error != "" {
-		s.WriteString("\n" + errorStyle.Render("Error: " + m.state.Error))
-	}
-	if m.state.Message != "" {
-		s.WriteString("\n" + messageStyle.Render(m.state.Message))
-	}
-
-	// Help text
-	help := "\n" + helpStyle.Render("j/k: navigate feeds | l: view articles | r: refresh | a: add feed | e: edit | d: delete feed | q: quit")
+	// Footer area: help text + message area
+	// Always render both to maintain consistent height
+	helpText := "j/k: navigate feeds | l: view articles | r: refresh | a: add feed | e: edit | d: delete feed | q: quit"
+	help := "\n" + helpStyle.Render(helpText)
 	s.WriteString(help)
+
+	// Message area - always render exactly one line to prevent layout jumps
+	messageLine := ""
+	if m.state.Error != "" {
+		errorText := "Error: " + m.state.Error
+		// Truncate to fit width (account for ANSI color codes)
+		maxLen := m.width - 10 // Leave some margin
+		if len(errorText) > maxLen {
+			errorText = errorText[:maxLen-3] + "..."
+		}
+		messageLine = errorStyle.Render(errorText)
+	} else if m.state.Message != "" {
+		messageText := m.state.Message
+		// Truncate to fit width (account for ANSI color codes)
+		maxLen := m.width - 10 // Leave some margin
+		if len(messageText) > maxLen {
+			messageText = messageText[:maxLen-3] + "..."
+		}
+		messageLine = messageStyle.Render(messageText)
+	}
+	// Always add the message line (empty string when no message, but still takes up space)
+	// The helpStyle margin already provides spacing, so we just add the message line
+	s.WriteString("\n" + messageLine)
 
 	return s.String()
 }
@@ -580,5 +609,5 @@ type keyMap struct {
 	Quit  key.Binding
 }
 
-var helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Margin(1)
+var helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 

@@ -1,6 +1,6 @@
-# Noodle - RSS Feed Terminal Reader
+# Noodle — A Modern TUI RSS/Atom Reader
 
-A keyboard-driven RSS/Atom feed reader for the terminal, built with Go and Bubble Tea.
+A fast and elegant RSS/Atom reader designed for people who love living in the command line. Built with Go and Bubble Tea, Noodle provides a smooth TUI experience powered entirely by your keyboard, with familiar Vim-style controls.
 
 ## Features
 
@@ -44,8 +44,18 @@ A keyboard-driven RSS/Atom feed reader for the terminal, built with Go and Bubbl
 ## Installation
 
 ```bash
+# to quickly build
 go build -o noodle .
+
+# or (builds slower, but binary is smaller)
+go build -trimpath -ldflags="-s -w" -o noodle .
+
+# then run
 ./noodle
+
+# you may also want to copy the binary to your PATH (and run it from any place), e.g.:
+sudo cp noodle /usr/local/bin/
+
 ```
 
 ## Configuration
@@ -108,6 +118,10 @@ Configuration file: `~/.config/noodle/config.json`
 - `github.com/mmcdole/gofeed` - RSS/Atom parser
 - `github.com/mattn/go-sqlite3` - SQLite driver
 - `github.com/spf13/afero` - File system abstraction
+
+## TODO
+
+- [ ] Keep feeds order from config
 
 ## License
 

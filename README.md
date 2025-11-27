@@ -24,7 +24,7 @@ Configuration is stored at `~/.config/noodle/config.json`:
 
 ```json
 {
-  "refresh_time": 60,
+  "refresh_time": 300,
   "feeds": [
     {"url": "https://example.com/feed.xml", "title": "Custom Title"},
     {"url": "https://other.com/feed.xml"}

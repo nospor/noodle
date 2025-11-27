@@ -313,15 +313,14 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case msg.String() == "enter":
-			if m.activePane == "feeds" && len(m.state.Feeds) > 0 {
-				m.activePane = "articles"
-				return m, nil
-			} else if m.activePane == "articles" && len(m.state.Articles) > 0 {
+			if m.activePane == "articles" && len(m.state.Articles) > 0 {
 				// Switch to article view
 				m.state.CurrentFeedID = m.state.Feeds[m.state.SelectedFeedIndex].ID
 				m.state.View = ArticleView
 				return NewArticleModel(m.state), nil
 			}
+			// Enter does nothing in feeds pane
+			return m, nil
 
 		case msg.String() == "r":
 			if m.activePane == "feeds" && len(m.state.Feeds) > 0 {
@@ -467,7 +466,7 @@ func (m *MainModel) View() string {
 	}
 
 	// Help text
-	help := "\n" + helpStyle.Render("j/k: navigate feeds | l: view articles | Enter: select | r: refresh | a: add feed | e: edit | d: delete feed | q: quit")
+	help := "\n" + helpStyle.Render("j/k: navigate feeds | l: view articles | r: refresh | a: add feed | e: edit | d: delete feed | q: quit")
 	s.WriteString(help)
 
 	return s.String()

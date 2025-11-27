@@ -37,11 +37,8 @@ func NewArticleModel(state *AppState) *ArticleModel {
 		height: state.Height,
 	}
 
-	// Initialize articles list
-	articlesDelegate := list.NewDefaultDelegate()
-	articlesDelegate.Styles.SelectedTitle = selectedItemStyle
-	articlesDelegate.Styles.SelectedDesc = selectedItemStyle
-
+	// Initialize articles list with custom delegate for read/unread styling
+	articlesDelegate := newArticleDelegate()
 	m.articlesList = list.New([]list.Item{}, articlesDelegate, 0, 0)
 	m.articlesList.Title = "Articles"
 	m.articlesList.SetShowStatusBar(false)
@@ -163,6 +160,31 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case readStatusChangedMsg:
+		// Update the current article's read status immediately
+		if m.state.CurrentArticle != nil && m.state.CurrentArticle.ID == msg.articleID {
+			m.state.CurrentArticle.IsRead = msg.isRead
+			// Also update it in the articles slice
+			if m.state.SelectedArticleIndex < len(m.state.Articles) {
+				for i := range m.state.Articles {
+					if m.state.Articles[i].ID == msg.articleID {
+						m.state.Articles[i].IsRead = msg.isRead
+						break
+					}
+				}
+				// Update the list items to reflect the change
+				items := make([]list.Item, len(m.state.Articles))
+				for i, a := range m.state.Articles {
+					items[i] = articleItem{article: a}
+				}
+				m.articlesList.SetItems(items)
+				m.articlesList.Select(m.state.SelectedArticleIndex)
+			}
+			// Refresh the content viewport to show the updated read status
+			m.updateContentViewport()
+		}
+		return m, nil
+
 	case tea.KeyMsg:
 		if m.state.Error != "" {
 			m.state.Error = ""
@@ -196,7 +218,7 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case key.Matches(msg, keys.Left), msg.String() == "h", msg.String() == "esc":
-			// Return to main view
+			// Return to main view - preserve SelectedArticleIndex for when we come back
 			m.state.View = MainView
 			mainModel := NewMainModel(m.state)
 			return mainModel, mainModel.Init()
@@ -258,33 +280,18 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+type readStatusChangedMsg struct {
+	articleID int64
+	isRead    bool
+}
+
 func (m *ArticleModel) markRead(articleID int64, isRead bool) tea.Cmd {
 	return func() tea.Msg {
 		if err := database.MarkRead(articleID, isRead); err != nil {
 			return errorMsg{err: err}
 		}
-		// Reload articles
-		articles, _ := database.GetArticles(m.state.CurrentFeedID)
-		m.state.Articles = articles
-		items := make([]list.Item, len(articles))
-		for i, a := range articles {
-			items[i] = articleItem{article: a}
-		}
-		m.articlesList.SetItems(items)
-		if m.state.SelectedArticleIndex < len(articles) {
-			m.articlesList.Select(m.state.SelectedArticleIndex)
-			// Update the current article to reflect the read status change
-			if m.state.CurrentArticle != nil && m.state.CurrentArticle.ID == articleID {
-				m.state.CurrentArticle.IsRead = isRead
-				// Also update it in the articles slice
-				if m.state.SelectedArticleIndex < len(articles) {
-					m.state.CurrentArticle = &articles[m.state.SelectedArticleIndex]
-				}
-				// Refresh the content viewport to show the updated status
-				m.updateContentViewport()
-			}
-		}
-		return nil
+		// Return a message to update the UI immediately
+		return readStatusChangedMsg{articleID: articleID, isRead: isRead}
 	}
 }
 

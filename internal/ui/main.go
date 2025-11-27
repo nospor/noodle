@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -17,10 +18,14 @@ import (
 var (
 	titleStyle        = lipgloss.NewStyle().MarginLeft(2)
 	itemStyle         = lipgloss.NewStyle().PaddingLeft(4)
-	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
+	selectedItemStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("170"))
+	normalItemStyle   = lipgloss.NewStyle() // No padding, default color
 	paneStyle         = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("62")).Padding(1, 2)
 	errorStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Margin(1)
 	messageStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("46")).Margin(1)
+	// Styles for read/unread articles
+	unreadArticleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("39")) // Bright blue for unread
+	readArticleStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("244")) // Gray for read
 )
 
 type feedItem struct {
@@ -59,6 +64,54 @@ func (i articleItem) Description() string {
 	return ""
 }
 
+// articleDelegate is a custom delegate that styles articles differently based on read status
+type articleDelegate struct {
+	list.DefaultDelegate
+}
+
+func newArticleDelegate() *articleDelegate {
+	d := &articleDelegate{
+		DefaultDelegate: list.NewDefaultDelegate(),
+	}
+	d.Styles.SelectedTitle = selectedItemStyle
+	d.Styles.SelectedDesc = selectedItemStyle
+	return d
+}
+
+func (d *articleDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
+	articleItem, ok := item.(articleItem)
+	if !ok {
+		d.DefaultDelegate.Render(w, m, index, item)
+		return
+	}
+
+	var titleStyle, descStyle lipgloss.Style
+	if index == m.Index() {
+		// Selected item - use selected style (color 170, no extra padding beyond default)
+		titleStyle = selectedItemStyle
+		descStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	} else {
+		// Unselected item - color based on read status
+		if !articleItem.article.IsRead {
+			titleStyle = unreadArticleStyle
+		} else {
+			titleStyle = readArticleStyle
+		}
+		descStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	}
+
+	title := articleItem.Title()
+	desc := articleItem.Description()
+
+	titleText := titleStyle.Render(title)
+	if desc != "" {
+		output := lipgloss.JoinVertical(lipgloss.Left, titleText, descStyle.Render(desc))
+		fmt.Fprint(w, output)
+	} else {
+		fmt.Fprint(w, titleText)
+	}
+}
+
 type MainModel struct {
 	feedsList    list.Model
 	articlesList list.Model
@@ -93,19 +146,20 @@ func NewMainModel(state *AppState) *MainModel {
 
 	// Initialize feeds list
 	feedsDelegate := list.NewDefaultDelegate()
+	// Selected feeds: pink color, no padding
 	feedsDelegate.Styles.SelectedTitle = selectedItemStyle
 	feedsDelegate.Styles.SelectedDesc = selectedItemStyle
+	// Unselected feeds: default color, no padding (same as selected for consistent padding)
+	feedsDelegate.Styles.NormalTitle = normalItemStyle
+	feedsDelegate.Styles.NormalDesc = normalItemStyle
 
 	m.feedsList = list.New([]list.Item{}, feedsDelegate, 0, 0)
 	m.feedsList.Title = "Feeds"
 	m.feedsList.SetShowStatusBar(false)
 	m.feedsList.SetFilteringEnabled(false)
 
-	// Initialize articles list
-	articlesDelegate := list.NewDefaultDelegate()
-	articlesDelegate.Styles.SelectedTitle = selectedItemStyle
-	articlesDelegate.Styles.SelectedDesc = selectedItemStyle
-
+	// Initialize articles list with custom delegate for read/unread styling
+	articlesDelegate := newArticleDelegate()
 	m.articlesList = list.New([]list.Item{}, articlesDelegate, 0, 0)
 	m.articlesList.Title = "Articles"
 	m.articlesList.SetShowStatusBar(false)
@@ -295,8 +349,11 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Switch to article view (articles on left, content on right)
 			if len(m.state.Feeds) > 0 && m.state.SelectedFeedIndex < len(m.state.Feeds) && len(m.state.Articles) > 0 {
 				m.state.CurrentFeedID = m.state.Feeds[m.state.SelectedFeedIndex].ID
-				// Reset article selection - will be set to first article in article view
-				m.state.SelectedArticleIndex = 0
+				// Don't reset SelectedArticleIndex - preserve it if switching back
+				// Only reset if it's invalid
+				if m.state.SelectedArticleIndex < 0 || m.state.SelectedArticleIndex >= len(m.state.Articles) {
+					m.state.SelectedArticleIndex = 0
+				}
 				m.state.View = ArticleView
 				return NewArticleModel(m.state), nil
 			}

@@ -333,7 +333,7 @@ func (m *ArticleModel) View() string {
 	}
 
 	// Help text
-	help := "\n" + helpStyle.Render("j/k: navigate articles | PgUp/PgDn: scroll content/page | o: open | r/u/f/x: actions | h/Esc: back | q: quit")
+	help := "\n" + helpStyle.Render("j/k: navigate articles | PgUp/PgDn: scroll content | o: open in browser | r: mark read | u: mark unread | f: toggle favorite | x: delete | h/Esc: back | q: quit")
 	s.WriteString(help)
 
 	return s.String()

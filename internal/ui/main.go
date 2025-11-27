@@ -234,9 +234,8 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			items[i] = articleItem{article: a}
 		}
 		m.articlesList.SetItems(items)
-		if len(msg.articles) > 0 && m.state.SelectedArticleIndex < len(msg.articles) {
-			m.articlesList.Select(m.state.SelectedArticleIndex)
-		}
+		// Don't select any article in main view - selection only happens in article view
+		m.articlesList.Select(-1)
 		return m, nil
 
 	case refreshFeedMsg:
@@ -277,12 +276,8 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state.SelectedFeedIndex = m.feedsList.Index()
 					return m, m.loadArticles()
 				}
-			} else {
-				m.articlesList, _ = m.articlesList.Update(msg)
-				if m.articlesList.Index() < len(m.state.Articles) {
-					m.state.SelectedArticleIndex = m.articlesList.Index()
-				}
 			}
+			// Articles list navigation disabled in main view
 			return m, nil
 
 		case key.Matches(msg, keys.Down), msg.String() == "j":
@@ -292,18 +287,16 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state.SelectedFeedIndex = m.feedsList.Index()
 					return m, m.loadArticles()
 				}
-			} else {
-				m.articlesList, _ = m.articlesList.Update(msg)
-				if m.articlesList.Index() < len(m.state.Articles) {
-					m.state.SelectedArticleIndex = m.articlesList.Index()
-				}
 			}
+			// Articles list navigation disabled in main view
 			return m, nil
 
 		case key.Matches(msg, keys.Right), msg.String() == "l":
 			// Switch to article view (articles on left, content on right)
 			if len(m.state.Feeds) > 0 && m.state.SelectedFeedIndex < len(m.state.Feeds) && len(m.state.Articles) > 0 {
 				m.state.CurrentFeedID = m.state.Feeds[m.state.SelectedFeedIndex].ID
+				// Reset article selection - will be set to first article in article view
+				m.state.SelectedArticleIndex = 0
 				m.state.View = ArticleView
 				return NewArticleModel(m.state), nil
 			}
@@ -316,6 +309,8 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.activePane == "articles" && len(m.state.Articles) > 0 {
 				// Switch to article view
 				m.state.CurrentFeedID = m.state.Feeds[m.state.SelectedFeedIndex].ID
+				// Reset article selection - will be set to first article in article view
+				m.state.SelectedArticleIndex = 0
 				m.state.View = ArticleView
 				return NewArticleModel(m.state), nil
 			}
@@ -366,12 +361,11 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		// Update lists
+		// Update lists - only update feeds list in main view
 		if m.activePane == "feeds" {
 			m.feedsList, _ = m.feedsList.Update(msg)
-		} else {
-			m.articlesList, _ = m.articlesList.Update(msg)
 		}
+		// Articles list is read-only in main view
 		return m, nil
 	}
 

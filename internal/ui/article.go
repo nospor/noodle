@@ -170,13 +170,18 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// 1. We have a current article
 		// 2. The article is not already read
 		// 3. We're still viewing the same article (timerArticleID matches)
-		// 4. At least 5 seconds have passed since we started viewing it
+		// 4. At least the configured time has passed since we started viewing it
 		if m.state.CurrentArticle != nil &&
 		   m.articleViewStartTime != nil &&
 		   m.state.CurrentArticle.ID == m.timerArticleID &&
 		   !m.state.CurrentArticle.IsRead {
 			elapsed := time.Since(*m.articleViewStartTime)
-			if elapsed >= 5*time.Second {
+			// Get configured time (default 5 seconds if not set)
+			setAsReadAfter := 5
+			if m.state.Config != nil && m.state.Config.SetAsReadAfter > 0 {
+				setAsReadAfter = m.state.Config.SetAsReadAfter
+			}
+			if elapsed >= time.Duration(setAsReadAfter)*time.Second {
 				// Mark as read and stop the periodic check
 				return m, m.markRead(m.state.CurrentArticle.ID, true)
 			}

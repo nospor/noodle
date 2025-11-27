@@ -15,8 +15,9 @@ type Feed struct {
 }
 
 type Config struct {
-	RefreshTime int    `json:"refresh_time"`
-	Feeds       []Feed `json:"feeds"`
+	RefreshTime      int    `json:"refresh_time"`
+	SetAsReadAfter   int    `json:"set_as_read_after"` // Seconds to wait before auto-marking as read (default: 5)
+	Feeds            []Feed `json:"feeds"`
 }
 
 var AppFs = afero.NewOsFs()
@@ -38,8 +39,9 @@ func LoadConfig() (*Config, error) {
 	// Create default config if file doesn't exist
 	if exists, _ := afero.Exists(AppFs, configPath); !exists {
 		config := &Config{
-			RefreshTime: 60,
-			Feeds:       []Feed{},
+			RefreshTime:    300,
+			SetAsReadAfter: 5, // Default 5 seconds
+			Feeds:          []Feed{},
 		}
 		if err := SaveConfig(config); err != nil {
 			return nil, err
@@ -55,6 +57,11 @@ func LoadConfig() (*Config, error) {
 	var config Config
 	if err := json.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
+	}
+
+	// Set default value if not specified
+	if config.SetAsReadAfter == 0 {
+		config.SetAsReadAfter = 5
 	}
 
 	return &config, nil

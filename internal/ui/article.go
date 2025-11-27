@@ -341,7 +341,7 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.toggleFavorite(m.state.CurrentArticle.ID, !m.state.CurrentArticle.IsFavorite)
 			}
 
-		case msg.String() == "x":
+		case msg.String() == "d":
 			if m.state.CurrentArticle != nil {
 				return m, m.deleteArticle(m.state.CurrentArticle.ID)
 			}
@@ -468,7 +468,7 @@ func (m *ArticleModel) View() string {
 	}
 
 	// Help text
-	help := "\n" + helpStyle.Render("j/k: navigate articles | H/L: prev/next page | PgUp/PgDn: scroll content | o: open in browser | r: mark read | u: mark unread | f: toggle favorite | x: delete | h/Esc: back | q: quit")
+	help := "\n" + helpStyle.Render("j/k: navigate articles | H/L: prev/next page | PgUp/PgDn: scroll content | o: open in browser | r: mark read | u: mark unread | f: toggle favorite | d: delete | h/Esc: back | q: quit")
 	s.WriteString(help)
 
 	return s.String()

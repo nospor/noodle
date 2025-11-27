@@ -158,14 +158,16 @@ func NewMainModel(state *AppState) *MainModel {
 	feedsDelegate.Styles.NormalDesc = normalItemStyle
 
 	m.feedsList = list.New([]list.Item{}, feedsDelegate, 0, 0)
-	m.feedsList.Title = "Feeds"
+	m.feedsList.Title = "" // Title is shown in pane header instead
+	m.feedsList.SetShowTitle(false) // Hide the title area completely
 	m.feedsList.SetShowStatusBar(false)
 	m.feedsList.SetFilteringEnabled(false)
 
 	// Initialize articles list with custom delegate for read/unread styling
 	articlesDelegate := newArticleDelegate()
 	m.articlesList = list.New([]list.Item{}, articlesDelegate, 0, 0)
-	m.articlesList.Title = "Articles"
+	m.articlesList.Title = "" // Title is shown in pane header instead
+	m.articlesList.SetShowTitle(false) // Hide the title area completely
 	m.articlesList.SetShowStatusBar(false)
 	m.articlesList.SetFilteringEnabled(false)
 
@@ -532,23 +534,17 @@ func (m *MainModel) View() string {
 	// Feeds pane
 	feedsView := m.feedsList.View()
 	feedsTitle := fmt.Sprintf("Feeds (%d)", len(m.state.Feeds))
-	if m.activePane == "feeds" {
-		feedsTitle += " [ACTIVE]"
-	}
-	feedsPane := paneStyle.Width(m.width/2 - 2).Render(feedsTitle + "\n" + feedsView)
+	feedsPane := paneStyle.Width(m.width/2 - 2).Render(feedsTitle + "\n\n" + feedsView)
 
 	// Articles pane
 	articlesView := m.articlesList.View()
 	articlesTitle := "Articles"
-	if m.activePane == "articles" {
-		articlesTitle += " [ACTIVE]"
-	}
 	if len(m.state.Feeds) > 0 && m.state.SelectedFeedIndex < len(m.state.Feeds) {
 		feed := m.state.Feeds[m.state.SelectedFeedIndex]
 		unread, _ := database.GetUnreadCount(feed.ID)
 		articlesTitle += fmt.Sprintf(" (%d unread)", unread)
 	}
-	articlesPane := paneStyle.Width(m.width/2 - 2).Render(articlesTitle + "\n" + articlesView)
+	articlesPane := paneStyle.Width(m.width/2 - 2).Render(articlesTitle + "\n\n" + articlesView)
 
 	// Combine panes
 	s.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, feedsPane, articlesPane))

@@ -40,7 +40,8 @@ func NewArticleModel(state *AppState) *ArticleModel {
 	// Initialize articles list with custom delegate for read/unread styling
 	articlesDelegate := newArticleDelegate()
 	m.articlesList = list.New([]list.Item{}, articlesDelegate, 0, 0)
-	m.articlesList.Title = "Articles"
+	m.articlesList.Title = "" // Title is shown in pane header instead
+	m.articlesList.SetShowTitle(false) // Hide the title area completely
 	m.articlesList.SetShowStatusBar(false)
 	m.articlesList.SetFilteringEnabled(false)
 
@@ -368,11 +369,11 @@ func (m *ArticleModel) View() string {
 	// Articles pane
 	articlesView := m.articlesList.View()
 	articlesTitle := "Articles"
-	articlesPane := paneStyle.Width(m.width/2 - 2).Render(articlesTitle + "\n" + articlesView)
+	articlesPane := paneStyle.Width(m.width/2 - 2).Render(articlesTitle + "\n\n" + articlesView)
 
 	// Content pane - fixed height matching articles pane
 	contentTitle := "Content"
-	contentPane := paneStyle.Width(m.width/2 - 2).Height(m.height - 6).Render(contentTitle + "\n" + m.contentViewport.View())
+	contentPane := paneStyle.Width(m.width/2 - 2).Height(m.height - 6).Render(contentTitle + "\n\n" + m.contentViewport.View())
 
 	// Combine panes
 	s.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, articlesPane, contentPane))

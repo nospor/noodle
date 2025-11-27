@@ -136,6 +136,8 @@ type loadFeedsMsg struct {
 	err   error
 }
 
+type autoRefreshTickMsg struct{}
+
 func NewMainModel(state *AppState) *MainModel {
 	m := &MainModel{
 		state:      state,
@@ -180,7 +182,7 @@ func NewMainModel(state *AppState) *MainModel {
 }
 
 func (m *MainModel) Init() tea.Cmd {
-	return tea.Batch(m.loadFeeds(), m.loadArticles())
+	return tea.Batch(m.loadFeeds(), m.loadArticles(), m.startAutoRefresh())
 }
 
 func (m *MainModel) loadFeeds() tea.Cmd {
@@ -205,6 +207,12 @@ func (m *MainModel) loadArticles() tea.Cmd {
 		}
 		return loadArticlesMsg{articles: articles}
 	}
+}
+
+func (m *MainModel) startAutoRefresh() tea.Cmd {
+	return tea.Tick(5*time.Second, func(time.Time) tea.Msg {
+		return autoRefreshTickMsg{}
+	})
 }
 
 func (m *MainModel) refreshFeed(feedURL string) tea.Cmd {
@@ -329,6 +337,10 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case feedDeletedMsg:
 		return m, tea.Batch(m.loadFeeds(), m.loadArticles())
+
+	case autoRefreshTickMsg:
+		// Periodically reload feeds and articles to pick up background refresh updates
+		return m, tea.Batch(m.loadFeeds(), m.loadArticles(), m.startAutoRefresh())
 
 	case tea.KeyMsg:
 		if m.state.Error != "" {

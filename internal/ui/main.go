@@ -31,12 +31,13 @@ var (
 type feedItem struct {
 	feed database.Feed
 	unreadCount int
+	totalCount  int
 }
 
 func (i feedItem) FilterValue() string { return i.feed.Title }
 func (i feedItem) Title() string {
-	if i.unreadCount > 0 {
-		return fmt.Sprintf("%s (%d)", i.feed.Title, i.unreadCount)
+	if i.totalCount > 0 {
+		return fmt.Sprintf("%s (%d/%d)", i.feed.Title, i.unreadCount, i.totalCount)
 	}
 	return i.feed.Title
 }
@@ -309,7 +310,8 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		items := make([]list.Item, len(msg.feeds))
 		for i, f := range msg.feeds {
 			unread, _ := database.GetUnreadCount(f.ID)
-			items[i] = feedItem{feed: f, unreadCount: unread}
+			total, _ := database.GetTotalCount(f.ID)
+			items[i] = feedItem{feed: f, unreadCount: unread, totalCount: total}
 		}
 		m.feedsList.SetItems(items)
 		if len(msg.feeds) > 0 && m.state.SelectedFeedIndex < len(msg.feeds) {

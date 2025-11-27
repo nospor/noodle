@@ -345,6 +345,16 @@ func GetUnreadCount(feedID int64) (int, error) {
 	return count, nil
 }
 
+func GetTotalCount(feedID int64) (int, error) {
+	query := `SELECT COUNT(*) FROM articles WHERE feed_id = ?`
+	var count int
+	err := db.QueryRow(query, feedID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get total count: %w", err)
+	}
+	return count, nil
+}
+
 func MarkRead(articleID int64, isRead bool) error {
 	query := `UPDATE articles SET is_read = ? WHERE id = ?`
 	_, err := db.Exec(query, isRead, articleID)

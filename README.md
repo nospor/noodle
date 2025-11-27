@@ -1,98 +1,104 @@
-# Noodle - RSS Feed Terminal App
+# Noodle - RSS Feed Terminal Reader
 
 A keyboard-driven RSS/Atom feed reader for the terminal, built with Go and Bubble Tea.
 
 ## Features
 
-- **Two-pane interface**: Feeds list on the left, articles on the right
-- **Vim-style navigation**: Use `h`, `j`, `k`, `l` or arrow keys
-- **Feed management**: Add, edit, and delete feeds
-- **Article management**: Mark as read/unread, favorite, and delete articles
-- **Auto-refresh**: Background worker refreshes feeds based on config
-- **Browser integration**: Open articles in your default browser
-- **Local storage**: SQLite database for fast access to feeds and articles
+### 🎯 Navigation & UI
+- **Vim-style navigation**: Use `h`, `j`, `k`, `l` or arrow keys to navigate
+- **Two-pane interface**: Feeds on the left, articles on the right
+- **Article detail view**: Switch to view articles list and full content side-by-side
+- **Page navigation**: Use `H`/`L` to jump to previous/next page in articles list
+- **Color-coded articles**: Visual distinction between read (gray) and unread (blue) articles
+
+### 📰 Feed Management
+- **Add feeds**: Press `a` to add new RSS/Atom feeds
+- **Edit feeds**: Press `e` to edit feed URL and title
+- **Delete feeds**: Press `d` to delete feeds (with confirmation prompt)
+- **Feed statistics**: See unread/total article counts (e.g., "Feedname (4 / 10)")
+- **Auto-refresh**: Background worker automatically refreshes feeds based on config
+
+### 📖 Article Management
+- **Mark as read/unread**: Press `r` to mark read, `u` to mark unread
+- **Toggle favorite**: Press `f` to star/unstar articles
+- **Delete articles**: Press `x` to delete articles
+- **Open in browser**: Press `o` to open article URL in your default browser
+- **Auto-mark as read**: Articles automatically marked as read after viewing for configured time (default: 5 seconds)
+- **Auto-mark on open**: Articles marked as read when opened in browser
+
+### ⚙️ Configuration
+- **Configurable refresh time**: Set feed refresh interval in `~/.config/noodle/config.json`
+- **Configurable auto-read time**: Set `set_as_read_after` in config (default: 5 seconds)
+- **Custom feed titles**: Optionally set custom titles for feeds
+- **Persistent storage**: All data stored locally in SQLite database
+
+### 🎨 User Experience
+- **Immediate UI updates**: All actions (read/unread, favorite, delete) update instantly
+- **Smart article filtering**: Deleted articles don't reappear after refresh
+- **Timestamp-based management**: Only new articles added during refresh
+- **Status indicators**: 
+  - `●` for unread articles
+  - `★` for favorite articles
+  - Unread count shown on feeds
 
 ## Installation
 
 ```bash
 go build -o noodle .
+./noodle
 ```
 
 ## Configuration
 
-Configuration is stored at `~/.config/noodle/config.json`:
+Configuration file: `~/.config/noodle/config.json`
 
 ```json
 {
   "refresh_time": 300,
+  "set_as_read_after": 5,
   "feeds": [
-    {"url": "https://example.com/feed.xml", "title": "Custom Title"},
-    {"url": "https://other.com/feed.xml"}
+    {
+      "url": "https://example.com/feed.xml",
+      "title": "Custom Title"
+    },
+    {
+      "url": "https://other.com/feed.xml"
+    }
   ]
 }
 ```
 
-- `refresh_time`: Time in seconds between automatic feed refreshes
+- `refresh_time`: Feed refresh interval in seconds (default: 60)
+- `set_as_read_after`: Seconds to wait before auto-marking articles as read (default: 5)
 - `feeds`: Array of feed objects with `url` (required) and `title` (optional)
 
-If no title is provided, the feed's own title will be used.
+## Keyboard Shortcuts
 
-## Usage
-
-### Main View
-
-- **Navigation**:
-  - `h` / `←`: Move to feeds pane
-  - `l` / `→`: Move to articles pane
-  - `j` / `↓`: Move down
-  - `k` / `↑`: Move up
-  - `Enter`: Open selected feed/articles or enter article view
-
-- **Feed Management**:
-  - `a`: Add new feed (prompts for URL and optional title)
-  - `e`: Edit selected feed
-  - `d`: Delete selected feed
-  - `r`: Refresh selected feed
-
-- **Article Actions** (in articles pane):
-  - `r`: Mark article as read
-  - `u`: Mark article as unread
-  - `f`: Toggle favorite
-  - `x`: Delete article
-
-- **Other**:
-  - `q` / `Ctrl+C`: Quit
+### Main View (Feeds)
+- `j`/`k` or `↓`/`↑`: Navigate feeds
+- `l` or `→`: Switch to article view
+- `r`: Refresh selected feed
+- `a`: Add new feed
+- `e`: Edit selected feed
+- `d`: Delete selected feed (with confirmation)
+- `q` or `Ctrl+C`: Quit
 
 ### Article View
-
-- **Navigation**:
-  - `h` / `←` / `Esc`: Return to main view
-  - `l` / `→`: Move to content pane
-  - `j` / `↓`: Move down
-  - `k` / `↑`: Move up
-  - `Enter`: View article content
-
-- **Article Actions**:
-  - `o`: Open article URL in browser
-  - `r`: Mark as read
-  - `u`: Mark as unread
-  - `f`: Toggle favorite
-  - `x`: Delete article
+- `j`/`k` or `↓`/`↑`: Navigate articles
+- `H`/`L`: Jump to previous/next page
+- `PgUp`/`PgDn`: Scroll article content
+- `o`: Open article in browser (auto-marks as read)
+- `r`: Mark article as read
+- `u`: Mark article as unread
+- `f`: Toggle favorite
+- `x`: Delete article
+- `h`/`Esc` or `←`: Return to main view
+- `q` or `Ctrl+C`: Quit
 
 ## Data Storage
 
-- **Database**: SQLite database at `~/.config/noodle/noodle.db`
-- **Config**: JSON file at `~/.config/noodle/config.json`
-
-The database stores:
-- Feed metadata (URL, title, last fetched time)
-- Articles (title, link, content, published date, read status, favorite status)
-
-## Building
-
-```bash
-go build -o noodle .
-```
+- **Database**: `~/.config/noodle/noodle.db` (SQLite)
+- **Config**: `~/.config/noodle/config.json`
 
 ## Dependencies
 
@@ -101,4 +107,9 @@ go build -o noodle .
 - `github.com/charmbracelet/lipgloss` - Styling
 - `github.com/mmcdole/gofeed` - RSS/Atom parser
 - `github.com/mattn/go-sqlite3` - SQLite driver
+- `github.com/spf13/afero` - File system abstraction
+
+## License
+
+Noodle is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 

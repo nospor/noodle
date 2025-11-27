@@ -554,7 +554,7 @@ func (m *MainModel) View() string {
 
 	// Feeds pane
 	feedsView := m.feedsList.View()
-	feedsTitle := fmt.Sprintf("Feeds (%d)", len(m.state.Feeds))
+	feedsTitle := fmt.Sprintf("Noodle (by nospor) v0.5 - Feeds (%d)", len(m.state.Feeds))
 	feedsPane := paneStyle.Width(m.width/2 - 2).Render(feedsTitle + "\n\n" + feedsView)
 
 	// Articles pane

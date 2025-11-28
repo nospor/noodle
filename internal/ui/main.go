@@ -37,10 +37,15 @@ type feedItem struct {
 
 func (i feedItem) FilterValue() string { return i.feed.Title }
 func (i feedItem) Title() string {
-	if i.totalCount > 0 {
-		return fmt.Sprintf("%s (%d/%d)", i.feed.Title, i.unreadCount, i.totalCount)
+	title := i.feed.Title
+	// Add dot indicator for feeds with unread articles
+	if i.unreadCount > 0 {
+		title = "● " + title
 	}
-	return i.feed.Title
+	if i.totalCount > 0 {
+		return fmt.Sprintf("%s (%d/%d)", title, i.unreadCount, i.totalCount)
+	}
+	return title
 }
 func (i feedItem) Description() string { return i.feed.URL }
 

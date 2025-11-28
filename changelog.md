@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.8
+
+- Distinction for feeds with not read articles
+
 ## v0.7
 
 - Refreshing feeds fixes

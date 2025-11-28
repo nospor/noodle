@@ -94,17 +94,26 @@ func InitDB() error {
 	}
 
 	// Migration: Add is_deleted column to articles if it doesn't exist
+	// Try to check if column exists using pragma_table_info
 	var columnExists int
-	checkDeletedColumnQuery := `
-		SELECT COUNT(*) FROM pragma_table_info('articles') 
-		WHERE name = 'is_deleted'
-	`
-	err = db.QueryRow(checkDeletedColumnQuery).Scan(&columnExists)
-	if err == nil && columnExists == 0 {
+	checkDeletedColumnQuery := `SELECT COUNT(*) FROM pragma_table_info('articles') WHERE name = 'is_deleted'`
+	checkErr := db.QueryRow(checkDeletedColumnQuery).Scan(&columnExists)
+	
+	// If check succeeds and column doesn't exist, or if check fails (try adding anyway)
+	if checkErr != nil || columnExists == 0 {
 		migrationQuery := `ALTER TABLE articles ADD COLUMN is_deleted INTEGER DEFAULT 0`
-		if _, err := db.Exec(migrationQuery); err != nil {
-			// Ignore error if column already exists
+		if _, execErr := db.Exec(migrationQuery); execErr != nil {
+			// Check if error is due to column already existing
+			errStr := execErr.Error()
+			if !strings.Contains(errStr, "duplicate column") && 
+			   !strings.Contains(errStr, "already exists") &&
+			   !strings.Contains(errStr, "UNIQUE constraint") {
+				// Only return error if it's not a "column already exists" error
+				return fmt.Errorf("failed to add is_deleted column: %w", execErr)
+			}
+			// Column already exists, which is fine - migration already completed
 		}
+		// Column added successfully or already exists - migration complete
 	}
 
 	return nil

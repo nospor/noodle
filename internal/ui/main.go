@@ -134,6 +134,8 @@ type refreshAllFeedsMsg struct {
 	trigger bool // true if this is just a trigger, false if refresh completed
 }
 
+type cleanupCompletedMsg struct{}
+
 type loadArticlesMsg struct {
 	articles []database.Article
 	err      error
@@ -379,6 +381,43 @@ func (m *MainModel) refreshAllFeeds() tea.Cmd {
 	}
 }
 
+func (m *MainModel) cleanupDeletedArticles() tea.Cmd {
+	return func() tea.Msg {
+		// Get all feeds from database
+		feeds, err := database.GetAllFeeds()
+		if err != nil {
+			// Silently ignore errors on startup cleanup
+			return cleanupCompletedMsg{}
+		}
+
+		// For each feed, determine cleanup days and run cleanup
+		for _, dbFeed := range feeds {
+			// Find feed in config to get feed-level setting
+			var feedConfig *config.Feed
+			for i := range m.state.Config.Feeds {
+				if m.state.Config.Feeds[i].URL == dbFeed.URL {
+					feedConfig = &m.state.Config.Feeds[i]
+					break
+				}
+			}
+
+			// Determine cleanup days: feed-level > global-level > default (30)
+			cleanupDays := 30 // default
+			if m.state.Config.RemoveDeletedAfter > 0 {
+				cleanupDays = m.state.Config.RemoveDeletedAfter
+			}
+			if feedConfig != nil && feedConfig.RemoveDeletedAfter > 0 {
+				cleanupDays = feedConfig.RemoveDeletedAfter
+			}
+
+			// Run cleanup for this feed
+			database.CleanupDeletedArticles(dbFeed.ID, cleanupDays)
+		}
+
+		return cleanupCompletedMsg{}
+	}
+}
+
 func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -434,11 +473,11 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.feedsList.Select(m.state.SelectedFeedIndex)
 			}
 		}
-		// After loading feeds, trigger refresh if this is the first load
+		// After loading feeds, trigger cleanup and refresh if this is the first load
 		if !m.initialLoadDone {
 			m.initialLoadDone = true
-			// This is the initial load, trigger refresh after loading articles
-			return m, tea.Batch(m.loadArticles(), m.refreshAllFeeds())
+			// This is the initial load, trigger cleanup and refresh after loading articles
+			return m, tea.Batch(m.loadArticles(), m.cleanupDeletedArticles(), m.refreshAllFeeds())
 		}
 		return m, m.loadArticles()
 
@@ -470,6 +509,10 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case refreshAllFeedsMsg:
 		// Reload feeds and articles after startup refresh
 		return m, tea.Batch(m.loadFeeds(), m.loadArticles())
+
+	case cleanupCompletedMsg:
+		// Cleanup completed, no action needed
+		return m, nil
 
 	case FeedAddedMsg, FeedUpdatedMsg:
 		return m, tea.Batch(m.loadFeeds(), m.loadArticles())

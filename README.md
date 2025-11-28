@@ -34,13 +34,14 @@ A fast and elegant RSS/Atom reader designed for people who love living in the co
 ### ⚙️ Configuration
 - **Configurable refresh time**: Set feed refresh interval in `~/.config/noodle/config.json`
 - **Configurable auto-read time**: Set `set_as_read_after` in config (default: 5 seconds)
+- **Configurable cleanup time**: Set `remove_deleted_after` globally or per-feed (default: 30 days)
 - **Custom feed titles**: Optionally set custom titles for feeds
 - **Persistent storage**: All data stored locally in SQLite database
 
 ### 🎨 User Experience
 - **Immediate UI updates**: All actions (read/unread, favorite, delete) update instantly
 - **Smart article filtering**: Deleted articles don't reappear after refresh
-- **Timestamp-based management**: Only new articles added during refresh
+- **Automatic cleanup**: Deleted articles permanently removed after configured days (default: 30)
 - **Status indicators**: 
   - `●` for unread articles
   - `★` for favorite articles
@@ -71,13 +72,19 @@ Configuration file: `~/.config/noodle/config.json`
 {
   "refresh_time": 300,
   "set_as_read_after": 5,
+  "remove_deleted_after": 20,
   "feeds": [
     {
       "url": "https://example.com/feed.xml",
-      "title": "Custom Title"
+      "title": "Custom Title",
+      "remove_deleted_after": 5
     },
     {
-      "url": "https://other.com/feed.xml"
+      "url": "https://other.com/feed.xml",
+      "remove_deleted_after": 90
+    },
+    {
+      "url": "https://third.com/feed.xml"
     }
   ]
 }
@@ -85,7 +92,11 @@ Configuration file: `~/.config/noodle/config.json`
 
 - `refresh_time`: Feed refresh interval in seconds (default: 60)
 - `set_as_read_after`: Seconds to wait before auto-marking articles as read (default: 5)
-- `feeds`: Array of feed objects with `url` (required) and `title` (optional)
+- `remove_deleted_after`: Days to keep deleted articles before permanent deletion (default: 30). Can be set globally or per-feed. Feed-level setting overrides global setting.
+- `feeds`: Array of feed objects with:
+  - `url` (required): RSS/Atom feed URL
+  - `title` (optional): Custom title for the feed
+  - `remove_deleted_after` (optional): Days to keep deleted articles for this specific feed (overrides global setting)
 
 ## Keyboard Shortcuts
 

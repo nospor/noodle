@@ -10,14 +10,16 @@ import (
 )
 
 type Feed struct {
-	URL   string `json:"url"`
-	Title string `json:"title,omitempty"`
+	URL               string `json:"url"`
+	Title             string `json:"title,omitempty"`
+	RemoveDeletedAfter int    `json:"remove_deleted_after,omitempty"` // Days to keep deleted articles (overrides global setting)
 }
 
 type Config struct {
-	RefreshTime      int    `json:"refresh_time"`
-	SetAsReadAfter   int    `json:"set_as_read_after"` // Seconds to wait before auto-marking as read (default: 5)
-	Feeds            []Feed `json:"feeds"`
+	RefreshTime        int    `json:"refresh_time"`
+	SetAsReadAfter     int    `json:"set_as_read_after"`     // Seconds to wait before auto-marking as read (default: 5)
+	RemoveDeletedAfter int    `json:"remove_deleted_after"`   // Days to keep deleted articles before permanent deletion (default: 30)
+	Feeds              []Feed `json:"feeds"`
 }
 
 var AppFs = afero.NewOsFs()
@@ -39,9 +41,10 @@ func LoadConfig() (*Config, error) {
 	// Create default config if file doesn't exist
 	if exists, _ := afero.Exists(AppFs, configPath); !exists {
 		config := &Config{
-			RefreshTime:    300,
-			SetAsReadAfter: 5, // Default 5 seconds
-			Feeds:          []Feed{},
+			RefreshTime:        300,
+			SetAsReadAfter:     5,  // Default 5 seconds
+			RemoveDeletedAfter: 30, // Default 30 days
+			Feeds:              []Feed{},
 		}
 		if err := SaveConfig(config); err != nil {
 			return nil, err
@@ -59,9 +62,12 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
-	// Set default value if not specified
+	// Set default values if not specified
 	if config.SetAsReadAfter == 0 {
 		config.SetAsReadAfter = 5
+	}
+	if config.RemoveDeletedAfter == 0 {
+		config.RemoveDeletedAfter = 30
 	}
 
 	return &config, nil

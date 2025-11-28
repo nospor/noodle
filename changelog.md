@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.7
+
+- Refreshing feeds fixes
+- Fixing loading articles which are published added not in order (possible break change, you may need to delete existing noodle db)
+
 ## v0.6
 
 - Keep feeds ordered as in config file

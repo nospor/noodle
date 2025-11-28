@@ -180,6 +180,7 @@ func NewMainModel(state *AppState) *MainModel {
 	m.articlesList.Title = "" // Title is shown in pane header instead
 	m.articlesList.SetShowTitle(false) // Hide the title area completely
 	m.articlesList.SetShowStatusBar(false)
+	m.articlesList.SetShowHelp(false)
 	m.articlesList.SetFilteringEnabled(false)
 
 	// Set width/height if available

@@ -23,6 +23,7 @@ type ArticleModel struct {
 	articleViewStartTime *time.Time // Track when article was first viewed
 	timerArticleID int64 // Track which article the timer is for
 	confirmDelete bool  // true when waiting for delete confirmation for favorite article
+	confirmBulkDelete bool  // true when waiting for bulk delete confirmation
 }
 
 type loadArticleContentMsg struct {
@@ -35,6 +36,10 @@ type favoriteToggledMsg struct {
 }
 
 type autoMarkReadCheckMsg struct{}
+
+type bulkDeleteCompletedMsg struct {
+	deletedCount int
+}
 
 func NewArticleModel(state *AppState) *ArticleModel {
 	m := &ArticleModel{
@@ -272,6 +277,36 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case bulkDeleteCompletedMsg:
+		// Reload articles from database and update the list immediately
+		articles, _ := database.GetArticles(m.state.CurrentFeedID)
+		m.state.Articles = articles
+		items := make([]list.Item, len(articles))
+		for i, a := range articles {
+			items[i] = articleItem{article: a}
+		}
+		m.articlesList.SetItems(items)
+		if len(articles) > 0 {
+			// Adjust selected index if needed
+			if m.state.SelectedArticleIndex >= len(articles) {
+				m.state.SelectedArticleIndex = len(articles) - 1
+			}
+			m.articlesList.Select(m.state.SelectedArticleIndex)
+			// Update current article
+			if m.state.SelectedArticleIndex < len(articles) {
+				m.state.CurrentArticle = &articles[m.state.SelectedArticleIndex]
+				m.updateContentViewport()
+			} else {
+				m.state.CurrentArticle = nil
+				m.contentViewport.SetContent("No article selected")
+			}
+		} else {
+			m.state.SelectedArticleIndex = -1
+			m.state.CurrentArticle = nil
+			m.contentViewport.SetContent("No articles available")
+		}
+		return m, nil
+
 	case tea.KeyMsg:
 		// If in delete confirmation mode, only handle y/n and escape
 		if m.confirmDelete {
@@ -283,6 +318,19 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case "n", "N", "esc":
 				m.confirmDelete = false
+				return m, nil
+			}
+			return m, nil
+		}
+
+		// If in bulk delete confirmation mode, only handle y/n and escape
+		if m.confirmBulkDelete {
+			switch msg.String() {
+			case "y", "Y":
+				m.confirmBulkDelete = false
+				return m, m.deleteNonFavoriteArticles()
+			case "n", "N", "esc":
+				m.confirmBulkDelete = false
 				return m, nil
 			}
 			return m, nil
@@ -367,6 +415,11 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Otherwise, delete immediately
 				return m, m.deleteArticle(m.state.CurrentArticle.ID)
 			}
+
+		case msg.String() == "D":
+			// Delete all non-favorite articles from current feed
+			m.confirmBulkDelete = true
+			return m, nil
 
 		case msg.String() == "H":
 			// Jump to previous page
@@ -453,6 +506,17 @@ func (m *ArticleModel) deleteArticle(articleID int64) tea.Cmd {
 	}
 }
 
+func (m *ArticleModel) deleteNonFavoriteArticles() tea.Cmd {
+	return func() tea.Msg {
+		deletedCount, err := database.DeleteNonFavoriteArticles(m.state.CurrentFeedID)
+		if err != nil {
+			return errorMsg{err: err}
+		}
+		// Return a message to update the UI immediately
+		return bulkDeleteCompletedMsg{deletedCount: deletedCount}
+	}
+}
+
 func (m *ArticleModel) openBrowser(url string) tea.Cmd {
 	return func() tea.Msg {
 		if err := openBrowser(url); err != nil {
@@ -494,8 +558,11 @@ func (m *ArticleModel) View() string {
 	if m.confirmDelete {
 		helpText := "Are you sure you want to delete this favorite article? [y]es / [n]o"
 		help = "\n" + confirmStyle.Render(helpText)
+	} else if m.confirmBulkDelete {
+		helpText := "Are you sure you want to delete all non-favorite articles from this feed? [y]es / [n]o"
+		help = "\n" + confirmStyle.Render(helpText)
 	} else {
-		helpText := "j/k: navigate articles | H/L: prev/next page | PgUp/PgDn: scroll content | o: open in browser | r: mark read | u: mark unread | f: toggle favorite | d: delete | h/Esc: back | q: quit"
+		helpText := "j/k: navigate articles | H/L: prev/next page | PgUp/PgDn: scroll content | o: open in browser | r: mark read | u: mark unread | f: toggle favorite | d: delete | D: delete all non-favorites | h/Esc: back | q: quit"
 		help = "\n" + helpStyle.Render(helpText)
 	}
 	s.WriteString(help)

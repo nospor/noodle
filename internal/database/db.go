@@ -382,6 +382,19 @@ func DeleteArticle(articleID int64) error {
 	return nil
 }
 
+func DeleteNonFavoriteArticles(feedID int64) (int, error) {
+	query := `DELETE FROM articles WHERE feed_id = ? AND is_favorite = 0`
+	result, err := db.Exec(query, feedID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete non-favorite articles: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	return int(rowsAffected), nil
+}
+
 func CloseDB() error {
 	if db != nil {
 		return db.Close()

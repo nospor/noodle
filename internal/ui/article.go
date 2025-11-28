@@ -22,6 +22,7 @@ type ArticleModel struct {
 	height       int
 	articleViewStartTime *time.Time // Track when article was first viewed
 	timerArticleID int64 // Track which article the timer is for
+	confirmDelete bool  // true when waiting for delete confirmation for favorite article
 }
 
 type loadArticleContentMsg struct {
@@ -272,6 +273,21 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// If in delete confirmation mode, only handle y/n and escape
+		if m.confirmDelete {
+			switch msg.String() {
+			case "y", "Y":
+				if m.state.CurrentArticle != nil {
+					m.confirmDelete = false
+					return m, m.deleteArticle(m.state.CurrentArticle.ID)
+				}
+			case "n", "N", "esc":
+				m.confirmDelete = false
+				return m, nil
+			}
+			return m, nil
+		}
+
 		if m.state.Error != "" {
 			m.state.Error = ""
 			return m, nil
@@ -343,6 +359,12 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case msg.String() == "d":
 			if m.state.CurrentArticle != nil {
+				// If article is favorite, ask for confirmation
+				if m.state.CurrentArticle.IsFavorite {
+					m.confirmDelete = true
+					return m, nil
+				}
+				// Otherwise, delete immediately
 				return m, m.deleteArticle(m.state.CurrentArticle.ID)
 			}
 
@@ -467,8 +489,15 @@ func (m *ArticleModel) View() string {
 		s.WriteString("\n" + messageStyle.Render(m.state.Message))
 	}
 
-	// Help text
-	help := "\n" + helpStyle.Render("j/k: navigate articles | H/L: prev/next page | PgUp/PgDn: scroll content | o: open in browser | r: mark read | u: mark unread | f: toggle favorite | d: delete | h/Esc: back | q: quit")
+	// Help text or confirmation message
+	var help string
+	if m.confirmDelete {
+		helpText := "Are you sure you want to delete this favorite article? [y]es / [n]o"
+		help = "\n" + confirmStyle.Render(helpText)
+	} else {
+		helpText := "j/k: navigate articles | H/L: prev/next page | PgUp/PgDn: scroll content | o: open in browser | r: mark read | u: mark unread | f: toggle favorite | d: delete | h/Esc: back | q: quit"
+		help = "\n" + helpStyle.Render(helpText)
+	}
 	s.WriteString(help)
 
 	return s.String()

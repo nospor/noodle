@@ -122,11 +122,16 @@ type MainModel struct {
 	height       int
 	activePane   string // "feeds" or "articles"
 	confirmDelete bool  // true when waiting for delete confirmation
+	initialLoadDone bool // true after first load completes
 }
 
 type refreshFeedMsg struct {
 	feedURL string
 	err     error
+}
+
+type refreshAllFeedsMsg struct {
+	trigger bool // true if this is just a trigger, false if refresh completed
 }
 
 type loadArticlesMsg struct {
@@ -322,6 +327,58 @@ func (m *MainModel) refreshFeed(feedURL string) tea.Cmd {
 	}
 }
 
+func (m *MainModel) refreshAllFeeds() tea.Cmd {
+	return func() tea.Msg {
+		// Refresh all feeds from config
+		// Use the same logic as refreshFeed for consistency
+		for _, configFeed := range m.state.Config.Feeds {
+			parsedFeed, err := feed.FetchAndParseFeed(configFeed.URL)
+			if err != nil {
+				continue // Skip feeds that fail to fetch
+			}
+
+			// Get existing feed from database to preserve its ID
+			existingFeed, err := database.GetFeedByURL(configFeed.URL)
+			if err != nil {
+				continue
+			}
+
+			if existingFeed == nil {
+				// Feed doesn't exist yet, skip (should have been created during sync)
+				continue
+			}
+
+			// Convert and save feed
+			dbFeed := feed.ConvertFeedToDBFeed(parsedFeed, configFeed.URL, configFeed.Title)
+			// Preserve the existing feed ID
+			dbFeed.ID = existingFeed.ID
+			if err := database.SaveFeed(dbFeed); err != nil {
+				continue
+			}
+
+			// If ID is still 0 after SaveFeed, get it from the database
+			if dbFeed.ID == 0 {
+				updatedFeed, err := database.GetFeedByURL(configFeed.URL)
+				if err != nil {
+					continue
+				}
+				if updatedFeed != nil {
+					dbFeed.ID = updatedFeed.ID
+				}
+			}
+
+			// Convert and save articles
+			articles := feed.ConvertItemsToArticles(parsedFeed.Items)
+			if err := database.SaveArticles(dbFeed.ID, articles); err != nil {
+				// Continue with other feeds even if one fails
+				continue
+			}
+		}
+		// Return message to trigger reload
+		return refreshAllFeedsMsg{trigger: false}
+	}
+}
+
 func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -377,6 +434,12 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.feedsList.Select(m.state.SelectedFeedIndex)
 			}
 		}
+		// After loading feeds, trigger refresh if this is the first load
+		if !m.initialLoadDone {
+			m.initialLoadDone = true
+			// This is the initial load, trigger refresh after loading articles
+			return m, tea.Batch(m.loadArticles(), m.refreshAllFeeds())
+		}
 		return m, m.loadArticles()
 
 	case loadArticlesMsg:
@@ -402,6 +465,10 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Clear message after 2 seconds
 			return m, tea.Batch(m.loadFeeds(), m.loadArticles(), m.clearMessageAfter(2*time.Second))
 		}
+		return m, tea.Batch(m.loadFeeds(), m.loadArticles())
+
+	case refreshAllFeedsMsg:
+		// Reload feeds and articles after startup refresh
 		return m, tea.Batch(m.loadFeeds(), m.loadArticles())
 
 	case FeedAddedMsg, FeedUpdatedMsg:

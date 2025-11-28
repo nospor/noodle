@@ -124,10 +124,6 @@ Configuration file: `~/.config/noodle/config.json`
 - `github.com/mattn/go-sqlite3` - SQLite driver
 - `github.com/spf13/afero` - File system abstraction
 
-## TODO
-
-- [ ] Keep feeds order from config
-
 ## License
 
 Noodle is licensed under the MIT License. See [LICENSE](LICENSE) for details.

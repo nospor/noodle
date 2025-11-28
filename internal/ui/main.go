@@ -199,8 +199,43 @@ func (m *MainModel) loadFeeds() tea.Cmd {
 		if err != nil {
 			return loadFeedsMsg{err: err}
 		}
-		return loadFeedsMsg{feeds: feeds}
+		
+		// Sort feeds according to config.json order
+		sortedFeeds := sortFeedsByConfigOrder(feeds, m.state.Config.Feeds)
+		
+		return loadFeedsMsg{feeds: sortedFeeds}
 	}
+}
+
+// sortFeedsByConfigOrder sorts feeds according to the order in config.json
+// Feeds not in config are appended at the end
+func sortFeedsByConfigOrder(dbFeeds []database.Feed, configFeeds []config.Feed) []database.Feed {
+	// Create a map for quick lookup
+	feedMap := make(map[string]database.Feed)
+	for _, feed := range dbFeeds {
+		feedMap[feed.URL] = feed
+	}
+	
+	// Track which feeds we've added
+	added := make(map[string]bool)
+	var sorted []database.Feed
+	
+	// Add feeds in config order
+	for _, configFeed := range configFeeds {
+		if dbFeed, exists := feedMap[configFeed.URL]; exists {
+			sorted = append(sorted, dbFeed)
+			added[configFeed.URL] = true
+		}
+	}
+	
+	// Append any feeds not in config at the end
+	for _, dbFeed := range dbFeeds {
+		if !added[dbFeed.URL] {
+			sorted = append(sorted, dbFeed)
+		}
+	}
+	
+	return sorted
 }
 
 func (m *MainModel) loadArticles() tea.Cmd {
@@ -576,7 +611,7 @@ func (m *MainModel) View() string {
 
 	// Feeds pane
 	feedsView := m.feedsList.View()
-	feedsTitle := fmt.Sprintf("Noodle (by nospor) v0.5 - Feeds (%d)", len(m.state.Feeds))
+	feedsTitle := fmt.Sprintf("Noodle - Feeds (%d)", len(m.state.Feeds))
 	feedsPane := paneStyle.Width(m.width/2 - 2).Render(feedsTitle + "\n\n" + feedsView)
 
 	// Articles pane

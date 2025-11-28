@@ -164,6 +164,7 @@ func NewMainModel(state *AppState) *MainModel {
 	m.feedsList.Title = "" // Title is shown in pane header instead
 	m.feedsList.SetShowTitle(false) // Hide the title area completely
 	m.feedsList.SetShowStatusBar(false)
+	m.feedsList.SetShowHelp(false)
 	m.feedsList.SetFilteringEnabled(false)
 
 	// Initialize articles list with custom delegate for read/unread styling

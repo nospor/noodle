@@ -71,6 +71,54 @@ func (i articleItem) Description() string {
 	return ""
 }
 
+// feedDelegate is a custom delegate that styles feeds differently based on unread count
+type feedDelegate struct {
+	list.DefaultDelegate
+}
+
+func newFeedDelegate() *feedDelegate {
+	d := &feedDelegate{
+		DefaultDelegate: list.NewDefaultDelegate(),
+	}
+	d.Styles.SelectedTitle = selectedItemStyle
+	d.Styles.SelectedDesc = selectedItemStyle
+	return d
+}
+
+func (d *feedDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
+	feedItem, ok := item.(feedItem)
+	if !ok {
+		d.DefaultDelegate.Render(w, m, index, item)
+		return
+	}
+
+	var titleStyle, descStyle lipgloss.Style
+	if index == m.Index() {
+		// Selected item - use selected style (color 170, no extra padding beyond default)
+		titleStyle = selectedItemStyle
+		descStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	} else {
+		// Unselected item - color based on unread count
+		if feedItem.unreadCount > 0 {
+			titleStyle = unreadArticleStyle
+		} else {
+			titleStyle = readArticleStyle
+		}
+		descStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	}
+
+	title := feedItem.Title()
+	desc := feedItem.Description()
+
+	titleText := titleStyle.Render(title)
+	if desc != "" {
+		output := lipgloss.JoinVertical(lipgloss.Left, titleText, descStyle.Render(desc))
+		fmt.Fprint(w, output)
+	} else {
+		fmt.Fprint(w, titleText)
+	}
+}
+
 // articleDelegate is a custom delegate that styles articles differently based on read status
 type articleDelegate struct {
 	list.DefaultDelegate
@@ -163,15 +211,8 @@ func NewMainModel(state *AppState) *MainModel {
 		height:     state.Height,
 	}
 
-	// Initialize feeds list
-	feedsDelegate := list.NewDefaultDelegate()
-	// Selected feeds: pink color, no padding
-	feedsDelegate.Styles.SelectedTitle = selectedItemStyle
-	feedsDelegate.Styles.SelectedDesc = selectedItemStyle
-	// Unselected feeds: default color, no padding (same as selected for consistent padding)
-	feedsDelegate.Styles.NormalTitle = normalItemStyle
-	feedsDelegate.Styles.NormalDesc = normalItemStyle
-
+	// Initialize feeds list with custom delegate for unread styling
+	feedsDelegate := newFeedDelegate()
 	m.feedsList = list.New([]list.Item{}, feedsDelegate, 0, 0)
 	m.feedsList.Title = "" // Title is shown in pane header instead
 	m.feedsList.SetShowTitle(false) // Hide the title area completely

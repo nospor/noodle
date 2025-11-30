@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.8.1
+
+- Keeping the same colors for feeds and articled
+
 ## v0.8
 
 - Distinction for feeds with not read articles

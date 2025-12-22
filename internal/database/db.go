@@ -492,6 +492,11 @@ func CleanupDeletedArticles(feedID int64, days int) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to get rows affected: %w", err)
 	}
+	if rowsAffected > 0 {
+		if _, err := db.Exec("VACUUM"); err != nil {
+			return int(rowsAffected), fmt.Errorf("failed to vacuum database: %w", err)
+		}
+	}
 	return int(rowsAffected), nil
 }
 

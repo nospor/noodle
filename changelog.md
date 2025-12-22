@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.8.2
+
+- Cleaning DB to keep db file small
+
 ## v0.8.1
 
 - Keeping the same colors for feeds and articled

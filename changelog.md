@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.8.3
+
+- Possibility to disable a feed
+
 ## v0.8.2
 
 - Cleaning DB to keep db file small

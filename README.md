@@ -85,6 +85,10 @@ Configuration file: `~/.config/noodle/config.json`
     },
     {
       "url": "https://third.com/feed.xml"
+    },
+    {
+      "url": "https://disabled.com/feed.xml",
+      "enabled": false
     }
   ]
 }
@@ -97,6 +101,7 @@ Configuration file: `~/.config/noodle/config.json`
   - `url` (required): RSS/Atom feed URL
   - `title` (optional): Custom title for the feed
   - `remove_deleted_after` (optional): Days to keep deleted articles for this specific feed (overrides global setting)
+  - `enabled` (optional): Whether the feed is active (default: `true`). When set to `false`, the feed will not appear in the feeds list and will not be fetched or refreshed.
 
 ## Keyboard Shortcuts
 

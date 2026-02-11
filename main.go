@@ -59,6 +59,11 @@ func initialModel() *model {
 
 func syncFeedsFromConfig(cfg *config.Config) error {
 	for _, feedConfig := range cfg.Feeds {
+		// Skip disabled feeds
+		if !feedConfig.IsEnabled() {
+			continue
+		}
+		
 		// Check if feed exists in database
 		dbFeed, err := database.GetFeedByURL(feedConfig.URL)
 		if err != nil {
@@ -416,6 +421,20 @@ func startRefreshWorker() {
 		}
 
 		for _, dbFeed := range feeds {
+			// Find feed in config to check if it's enabled
+			var feedConfig *config.Feed
+			for i := range cfg.Feeds {
+				if cfg.Feeds[i].URL == dbFeed.URL {
+					feedConfig = &cfg.Feeds[i]
+					break
+				}
+			}
+
+			// Skip disabled feeds
+			if feedConfig != nil && !feedConfig.IsEnabled() {
+				continue
+			}
+
 			// Check if it's time to refresh
 			shouldRefresh := true
 			if dbFeed.LastFetched != nil {
@@ -433,11 +452,8 @@ func startRefreshWorker() {
 
 				// Find feed in config to get custom title
 				var customTitle string
-				for _, f := range cfg.Feeds {
-					if f.URL == dbFeed.URL {
-						customTitle = f.Title
-						break
-					}
+				if feedConfig != nil {
+					customTitle = feedConfig.Title
 				}
 
 				// Update feed

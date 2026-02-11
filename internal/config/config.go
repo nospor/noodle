@@ -13,6 +13,7 @@ type Feed struct {
 	URL               string `json:"url"`
 	Title             string `json:"title,omitempty"`
 	RemoveDeletedAfter int    `json:"remove_deleted_after,omitempty"` // Days to keep deleted articles (overrides global setting)
+	Enabled           *bool  `json:"enabled,omitempty"`              // Whether the feed is enabled (default: true)
 }
 
 type Config struct {
@@ -118,3 +119,10 @@ func DeleteFeed(config *Config, index int) error {
 	return SaveConfig(config)
 }
 
+// IsEnabled returns true if the feed is enabled (defaults to true if not specified)
+func (f *Feed) IsEnabled() bool {
+	if f.Enabled == nil {
+		return true // default to enabled
+	}
+	return *f.Enabled
+}

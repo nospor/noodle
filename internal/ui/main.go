@@ -264,6 +264,7 @@ func (m *MainModel) loadFeeds() tea.Cmd {
 
 // sortFeedsByConfigOrder sorts feeds according to the order in config.json
 // Feeds not in config are appended at the end
+// Disabled feeds are filtered out
 func sortFeedsByConfigOrder(dbFeeds []database.Feed, configFeeds []config.Feed) []database.Feed {
 	// Create a map for quick lookup
 	feedMap := make(map[string]database.Feed)
@@ -271,21 +272,32 @@ func sortFeedsByConfigOrder(dbFeeds []database.Feed, configFeeds []config.Feed) 
 		feedMap[feed.URL] = feed
 	}
 	
+	// Create a map to track disabled feeds
+	disabledFeeds := make(map[string]bool)
+	for _, configFeed := range configFeeds {
+		if !configFeed.IsEnabled() {
+			disabledFeeds[configFeed.URL] = true
+		}
+	}
+	
 	// Track which feeds we've added
 	added := make(map[string]bool)
 	var sorted []database.Feed
 	
-	// Add feeds in config order
+	// Add feeds in config order, but only if enabled
 	for _, configFeed := range configFeeds {
+		if !configFeed.IsEnabled() {
+			continue // Skip disabled feeds
+		}
 		if dbFeed, exists := feedMap[configFeed.URL]; exists {
 			sorted = append(sorted, dbFeed)
 			added[configFeed.URL] = true
 		}
 	}
 	
-	// Append any feeds not in config at the end
+	// Append any feeds not in config at the end, but skip disabled ones
 	for _, dbFeed := range dbFeeds {
-		if !added[dbFeed.URL] {
+		if !added[dbFeed.URL] && !disabledFeeds[dbFeed.URL] {
 			sorted = append(sorted, dbFeed)
 		}
 	}
@@ -378,9 +390,13 @@ func (m *MainModel) refreshFeed(feedURL string) tea.Cmd {
 
 func (m *MainModel) refreshAllFeeds() tea.Cmd {
 	return func() tea.Msg {
-		// Refresh all feeds from config
+		// Refresh all enabled feeds from config
 		// Use the same logic as refreshFeed for consistency
 		for _, configFeed := range m.state.Config.Feeds {
+			if !configFeed.IsEnabled() {
+				continue // Skip disabled feeds
+			}
+			
 			parsedFeed, err := feed.FetchAndParseFeed(configFeed.URL)
 			if err != nil {
 				continue // Skip feeds that fail to fetch
@@ -446,6 +462,11 @@ func (m *MainModel) cleanupDeletedArticles() tea.Cmd {
 					feedConfig = &m.state.Config.Feeds[i]
 					break
 				}
+			}
+
+			// Skip disabled feeds
+			if feedConfig != nil && !feedConfig.IsEnabled() {
+				continue
 			}
 
 			// Determine cleanup days: feed-level > global-level > default (30)

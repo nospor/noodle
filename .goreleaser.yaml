@@ -38,3 +38,9 @@ checksum:
 
 changelog:
   disable: true # We disable GoReleaser's changelog since git-cliff manages it.
+
+release:
+  github:
+    owner: nospor
+    name: noodle
+  replace_existing_artifacts: true

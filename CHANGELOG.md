@@ -1,9 +1,21 @@
 
+## [unreleased]
+
+### Miscellaneous Tasks
+
+- Update CHANGELOG.md for v0.8.4 [skip ci]
+
 ## [0.8.4] - 2026-05-25
 
 ### Features
 
 - *(ci)* Add CI/CD pipelines, release configurations, and Cobra CLI entry point
+  - Integrate Cobra CLI for version control and daemon commands
+  - Support platform-independent background process spawning for
+  Windows/Unix
+  - Configure GoReleaser (v2) for cross-platform binary builds
+  - Configure git-cliff for automated changelog generation
+  - Set up GitHub Actions workflows for testing and releases
 
 ## [0.8.3] - 2026-02-11
 
@@ -43,6 +55,8 @@
 
 - Refresh feeds on app start
 - [**breaking**] Changing way how fetching new articles
+  Possible break change, you may need to delete existing noodle db as new
+  column was added to articles table
 - Now migration for new column should work
 
 ## [0.6] - 2025-11-28
@@ -76,6 +90,7 @@
 - Feed doesnt refresh
 - Refresh articles view
 - Prevent articles resurection
+  When article was deleted, it resurected after refresh
 - Preventing refresh message from breaking panes layout
 - Stop jumping panes on first feed
 

@@ -1,10 +1,4 @@
 
-## [unreleased]
-
-### Miscellaneous Tasks
-
-- Update CHANGELOG.md for v0.8.4 [skip ci]
-
 ## [0.8.4] - 2026-05-25
 
 ### Features
@@ -16,6 +10,17 @@
   - Configure GoReleaser (v2) for cross-platform binary builds
   - Configure git-cliff for automated changelog generation
   - Set up GitHub Actions workflows for testing and releases
+
+### Miscellaneous Tasks
+
+- Update CHANGELOG.md for v0.8.4 [skip ci]
+- *(ci)* Fix action deprecations and add commit descriptions to changelog
+  - Add FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true to resolve Node.js 20
+  deprecation warnings
+  - Fix GoReleaser format deprecations by using the plural formats schema
+  - Update git-cliff template to include and format commit descriptions as
+  sub-lists
+- *(ci)* Enable GoReleaser asset replacement to support retries
 
 ## [0.8.3] - 2026-02-11
 

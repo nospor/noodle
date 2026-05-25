@@ -15,15 +15,15 @@ import (
 )
 
 type ArticleModel struct {
-	articlesList list.Model
-	contentViewport viewport.Model
-	state        *AppState
-	width        int
-	height       int
+	articlesList         list.Model
+	contentViewport      viewport.Model
+	state                *AppState
+	width                int
+	height               int
 	articleViewStartTime *time.Time // Track when article was first viewed
-	timerArticleID int64 // Track which article the timer is for
-	confirmDelete bool  // true when waiting for delete confirmation for favorite article
-	confirmBulkDelete bool  // true when waiting for bulk delete confirmation
+	timerArticleID       int64      // Track which article the timer is for
+	confirmDelete        bool       // true when waiting for delete confirmation for favorite article
+	confirmBulkDelete    bool       // true when waiting for bulk delete confirmation
 }
 
 type loadArticleContentMsg struct {
@@ -31,8 +31,8 @@ type loadArticleContentMsg struct {
 }
 
 type favoriteToggledMsg struct {
-	articleID   int64
-	isFavorite  bool
+	articleID  int64
+	isFavorite bool
 }
 
 type autoMarkReadCheckMsg struct{}
@@ -43,16 +43,16 @@ type bulkDeleteCompletedMsg struct {
 
 func NewArticleModel(state *AppState) *ArticleModel {
 	m := &ArticleModel{
-		state:  state,
-		width:  state.Width,
-		height: state.Height,
+		state:          state,
+		width:          state.Width,
+		height:         state.Height,
 		timerArticleID: -1, // Initialize to invalid ID
 	}
 
 	// Initialize articles list with custom delegate for read/unread styling
 	articlesDelegate := newArticleDelegate()
 	m.articlesList = list.New([]list.Item{}, articlesDelegate, 0, 0)
-	m.articlesList.Title = "" // Title is shown in pane header instead
+	m.articlesList.Title = ""          // Title is shown in pane header instead
 	m.articlesList.SetShowTitle(false) // Hide the title area completely
 	m.articlesList.SetShowStatusBar(false)
 	m.articlesList.SetShowHelp(false) // Hide built-in help text
@@ -179,9 +179,9 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// 3. We're still viewing the same article (timerArticleID matches)
 		// 4. At least the configured time has passed since we started viewing it
 		if m.state.CurrentArticle != nil &&
-		   m.articleViewStartTime != nil &&
-		   m.state.CurrentArticle.ID == m.timerArticleID &&
-		   !m.state.CurrentArticle.IsRead {
+			m.articleViewStartTime != nil &&
+			m.state.CurrentArticle.ID == m.timerArticleID &&
+			!m.state.CurrentArticle.IsRead {
 			elapsed := time.Since(*m.articleViewStartTime)
 			// Get configured time (default 5 seconds if not set)
 			setAsReadAfter := 5
@@ -454,14 +454,14 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Update list for other keys
 		m.articlesList, _ = m.articlesList.Update(msg)
-		
+
 		// If list index changed, update selected article
 		if m.articlesList.Index() < len(m.state.Articles) && m.articlesList.Index() != m.state.SelectedArticleIndex {
 			m.state.SelectedArticleIndex = m.articlesList.Index()
 			article := m.state.Articles[m.state.SelectedArticleIndex]
 			return m, m.loadArticleContent(article)
 		}
-		
+
 		return m, nil
 	}
 
@@ -574,7 +574,7 @@ func (m *ArticleModel) View() string {
 
 func renderArticleContent(article *database.Article) string {
 	var s strings.Builder
-	
+
 	// Title
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("170")).MarginBottom(1)
 	s.WriteString(titleStyle.Render(article.Title))
@@ -636,4 +636,3 @@ func openBrowser(url string) error {
 	cmd := exec.Command("xdg-open", url)
 	return cmd.Run()
 }
-

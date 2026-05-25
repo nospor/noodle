@@ -10,16 +10,16 @@ import (
 )
 
 type Feed struct {
-	URL               string `json:"url"`
-	Title             string `json:"title,omitempty"`
+	URL                string `json:"url"`
+	Title              string `json:"title,omitempty"`
 	RemoveDeletedAfter int    `json:"remove_deleted_after,omitempty"` // Days to keep deleted articles (overrides global setting)
-	Enabled           *bool  `json:"enabled,omitempty"`              // Whether the feed is enabled (default: true)
+	Enabled            *bool  `json:"enabled,omitempty"`              // Whether the feed is enabled (default: true)
 }
 
 type Config struct {
 	RefreshTime        int    `json:"refresh_time"`
-	SetAsReadAfter     int    `json:"set_as_read_after"`     // Seconds to wait before auto-marking as read (default: 5)
-	RemoveDeletedAfter int    `json:"remove_deleted_after"`   // Days to keep deleted articles before permanent deletion (default: 30)
+	SetAsReadAfter     int    `json:"set_as_read_after"`    // Seconds to wait before auto-marking as read (default: 5)
+	RemoveDeletedAfter int    `json:"remove_deleted_after"` // Days to keep deleted articles before permanent deletion (default: 30)
 	Feeds              []Feed `json:"feeds"`
 }
 

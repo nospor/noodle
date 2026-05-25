@@ -1,2 +1,6 @@
 noodle
 info.txt
+
+# GoReleaser
+dist/
+RELEASE_NOTES.md

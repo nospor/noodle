@@ -15,17 +15,16 @@ const (
 )
 
 type AppState struct {
-	View        View
-	Config      *config.Config
-	Feeds       []database.Feed
-	Articles    []database.Article
-	SelectedFeedIndex int
+	View                 View
+	Config               *config.Config
+	Feeds                []database.Feed
+	Articles             []database.Article
+	SelectedFeedIndex    int
 	SelectedArticleIndex int
-	CurrentFeedID int64
-	CurrentArticle *database.Article
-	Error       string
-	Message     string
-	Width       int
-	Height      int
+	CurrentFeedID        int64
+	CurrentArticle       *database.Article
+	Error                string
+	Message              string
+	Width                int
+	Height               int
 }
-

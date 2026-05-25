@@ -102,4 +102,3 @@ func (m *InputModel) View() string {
 
 	return centered
 }
-

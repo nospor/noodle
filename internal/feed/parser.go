@@ -28,8 +28,8 @@ func ConvertFeedToDBFeed(feed *gofeed.Feed, url string, customTitle string) *dat
 
 	now := time.Now()
 	return &database.Feed{
-		URL:        url,
-		Title:      title,
+		URL:         url,
+		Title:       title,
 		LastFetched: &now,
 	}
 }
@@ -38,10 +38,10 @@ func ConvertItemsToArticles(feedItems []*gofeed.Item) []database.Article {
 	articles := make([]database.Article, 0, len(feedItems))
 	for _, item := range feedItems {
 		article := database.Article{
-			Title:   item.Title,
-			Link:    item.Link,
-			Content: getContent(item),
-			IsRead:  false,
+			Title:      item.Title,
+			Link:       item.Link,
+			Content:    getContent(item),
+			IsRead:     false,
 			IsFavorite: false,
 		}
 
@@ -65,4 +65,3 @@ func getContent(item *gofeed.Item) string {
 	}
 	return ""
 }
-

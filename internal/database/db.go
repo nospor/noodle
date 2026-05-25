@@ -98,16 +98,16 @@ func InitDB() error {
 	var columnExists int
 	checkDeletedColumnQuery := `SELECT COUNT(*) FROM pragma_table_info('articles') WHERE name = 'is_deleted'`
 	checkErr := db.QueryRow(checkDeletedColumnQuery).Scan(&columnExists)
-	
+
 	// If check succeeds and column doesn't exist, or if check fails (try adding anyway)
 	if checkErr != nil || columnExists == 0 {
 		migrationQuery := `ALTER TABLE articles ADD COLUMN is_deleted INTEGER DEFAULT 0`
 		if _, execErr := db.Exec(migrationQuery); execErr != nil {
 			// Check if error is due to column already existing
 			errStr := execErr.Error()
-			if !strings.Contains(errStr, "duplicate column") && 
-			   !strings.Contains(errStr, "already exists") &&
-			   !strings.Contains(errStr, "UNIQUE constraint") {
+			if !strings.Contains(errStr, "duplicate column") &&
+				!strings.Contains(errStr, "already exists") &&
+				!strings.Contains(errStr, "UNIQUE constraint") {
 				// Only return error if it's not a "column already exists" error
 				return fmt.Errorf("failed to add is_deleted column: %w", execErr)
 			}
@@ -214,10 +214,10 @@ func SaveArticles(feedID int64, articles []Article) error {
 
 	// Build a map of existing articles by link for efficient lookup
 	existingMap := make(map[string]struct {
-		id         int64
-		isDeleted  int
+		id        int64
+		isDeleted int
 	})
-	
+
 	// Deduplicate articles by link (keep first occurrence)
 	uniqueArticles := make([]Article, 0, len(articles))
 	seenLinks := make(map[string]bool)
@@ -228,7 +228,7 @@ func SaveArticles(feedID int64, articles []Article) error {
 			seenLinks[article.Link] = true
 		}
 	}
-	
+
 	// Collect all unique links to check
 	links := make([]string, 0, len(uniqueArticles))
 	for _, article := range uniqueArticles {
@@ -308,7 +308,7 @@ func SaveArticles(feedID int64, articles []Article) error {
 			} else {
 				newIsDeleted = 0
 			}
-			
+
 			_, err := updateStmt.Exec(
 				article.Title,
 				article.Content,
@@ -342,7 +342,7 @@ func SaveArticles(feedID int64, articles []Article) error {
 						`SELECT is_deleted FROM articles WHERE feed_id = ? AND link = ?`,
 						feedID, article.Link,
 					).Scan(&existingIsDeleted)
-					
+
 					if checkErr == nil {
 						// Article exists now, update it
 						var newIsDeleted int
@@ -351,7 +351,7 @@ func SaveArticles(feedID int64, articles []Article) error {
 						} else {
 							newIsDeleted = 0
 						}
-						
+
 						_, updateErr := updateStmt.Exec(
 							article.Title,
 							article.Content,
@@ -506,4 +506,3 @@ func CloseDB() error {
 	}
 	return nil
 }
-

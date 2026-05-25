@@ -25,12 +25,12 @@ var (
 	messageStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("46"))
 	confirmStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Bold(true) // Orange/bold for confirmation
 	// Styles for read/unread articles
-	unreadArticleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("39")) // Bright blue for unread
+	unreadArticleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))  // Bright blue for unread
 	readArticleStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("244")) // Gray for read
 )
 
 type feedItem struct {
-	feed database.Feed
+	feed        database.Feed
 	unreadCount int
 	totalCount  int
 }
@@ -168,14 +168,14 @@ func (d *articleDelegate) Render(w io.Writer, m list.Model, index int, item list
 }
 
 type MainModel struct {
-	feedsList    list.Model
-	articlesList list.Model
-	state        *AppState
-	width        int
-	height       int
-	activePane   string // "feeds" or "articles"
-	confirmDelete bool  // true when waiting for delete confirmation
-	initialLoadDone bool // true after first load completes
+	feedsList       list.Model
+	articlesList    list.Model
+	state           *AppState
+	width           int
+	height          int
+	activePane      string // "feeds" or "articles"
+	confirmDelete   bool   // true when waiting for delete confirmation
+	initialLoadDone bool   // true after first load completes
 }
 
 type refreshFeedMsg struct {
@@ -214,7 +214,7 @@ func NewMainModel(state *AppState) *MainModel {
 	// Initialize feeds list with custom delegate for unread styling
 	feedsDelegate := newFeedDelegate()
 	m.feedsList = list.New([]list.Item{}, feedsDelegate, 0, 0)
-	m.feedsList.Title = "" // Title is shown in pane header instead
+	m.feedsList.Title = ""          // Title is shown in pane header instead
 	m.feedsList.SetShowTitle(false) // Hide the title area completely
 	m.feedsList.SetShowStatusBar(false)
 	m.feedsList.SetShowHelp(false)
@@ -223,7 +223,7 @@ func NewMainModel(state *AppState) *MainModel {
 	// Initialize articles list with custom delegate for read/unread styling
 	articlesDelegate := newArticleDelegate()
 	m.articlesList = list.New([]list.Item{}, articlesDelegate, 0, 0)
-	m.articlesList.Title = "" // Title is shown in pane header instead
+	m.articlesList.Title = ""          // Title is shown in pane header instead
 	m.articlesList.SetShowTitle(false) // Hide the title area completely
 	m.articlesList.SetShowStatusBar(false)
 	m.articlesList.SetShowHelp(false)
@@ -254,10 +254,10 @@ func (m *MainModel) loadFeeds() tea.Cmd {
 		if err != nil {
 			return loadFeedsMsg{err: err}
 		}
-		
+
 		// Sort feeds according to config.json order
 		sortedFeeds := sortFeedsByConfigOrder(feeds, m.state.Config.Feeds)
-		
+
 		return loadFeedsMsg{feeds: sortedFeeds}
 	}
 }
@@ -271,7 +271,7 @@ func sortFeedsByConfigOrder(dbFeeds []database.Feed, configFeeds []config.Feed) 
 	for _, feed := range dbFeeds {
 		feedMap[feed.URL] = feed
 	}
-	
+
 	// Create a map to track disabled feeds
 	disabledFeeds := make(map[string]bool)
 	for _, configFeed := range configFeeds {
@@ -279,11 +279,11 @@ func sortFeedsByConfigOrder(dbFeeds []database.Feed, configFeeds []config.Feed) 
 			disabledFeeds[configFeed.URL] = true
 		}
 	}
-	
+
 	// Track which feeds we've added
 	added := make(map[string]bool)
 	var sorted []database.Feed
-	
+
 	// Add feeds in config order, but only if enabled
 	for _, configFeed := range configFeeds {
 		if !configFeed.IsEnabled() {
@@ -294,14 +294,14 @@ func sortFeedsByConfigOrder(dbFeeds []database.Feed, configFeeds []config.Feed) 
 			added[configFeed.URL] = true
 		}
 	}
-	
+
 	// Append any feeds not in config at the end, but skip disabled ones
 	for _, dbFeed := range dbFeeds {
 		if !added[dbFeed.URL] && !disabledFeeds[dbFeed.URL] {
 			sorted = append(sorted, dbFeed)
 		}
 	}
-	
+
 	return sorted
 }
 
@@ -396,7 +396,7 @@ func (m *MainModel) refreshAllFeeds() tea.Cmd {
 			if !configFeed.IsEnabled() {
 				continue // Skip disabled feeds
 			}
-			
+
 			parsedFeed, err := feed.FetchAndParseFeed(configFeed.URL)
 			if err != nil {
 				continue // Skip feeds that fail to fetch
@@ -869,4 +869,3 @@ type keyMap struct {
 }
 
 var helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-

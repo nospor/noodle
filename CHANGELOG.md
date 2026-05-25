@@ -21,6 +21,8 @@
   - Update git-cliff template to include and format commit descriptions as
   sub-lists
 - *(ci)* Enable GoReleaser asset replacement to support retries
+- Update CHANGELOG.md for v0.8.4 [skip ci]
+- *(ci)* Upgrade GitHub Actions to native Node.js 24 versions
 
 ## [0.8.3] - 2026-02-11
 

@@ -623,8 +623,27 @@ func renderArticleContent(article *database.Article) string {
 }
 
 func stripHTML(html string) string {
-	// Simple HTML tag removal
-	// For a production app, you'd want to use a proper HTML parser
+	// Before stripping tags, convert block-level elements to newlines so that
+	// list items, paragraphs, line-breaks, etc. are preserved as separate lines.
+	blockTags := []string{
+		"<br", "<BR",
+		"<p", "<P",
+		"</p>", "</P>",
+		"<li", "<LI",
+		"</li>", "</LI>",
+		"<div", "<DIV",
+		"</div>", "</DIV>",
+		"<tr", "<TR",
+		"</tr>", "</TR>",
+		"<hr", "<HR",
+		"<h1", "<H1", "<h2", "<H2", "<h3", "<H3",
+		"<h4", "<H4", "<h5", "<H5", "<h6", "<H6",
+	}
+	for _, tag := range blockTags {
+		html = strings.ReplaceAll(html, tag, "\n"+tag)
+	}
+
+	// Now strip all remaining HTML tags character by character.
 	var result strings.Builder
 	inTag := false
 	for _, r := range html {

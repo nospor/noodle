@@ -447,11 +447,14 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// Handle PgUp/PgDn - scroll content viewport
-		if msg.String() == "pgup" || msg.String() == "pgdown" {
-			var cmd tea.Cmd
-			m.contentViewport, cmd = m.contentViewport.Update(msg)
-			return m, cmd
+		// Handle PgUp/PgDn - scroll content viewport by half page
+		if msg.String() == "pgup" {
+			m.contentViewport.HalfPageUp()
+			return m, nil
+		}
+		if msg.String() == "pgdown" {
+			m.contentViewport.HalfPageDown()
+			return m, nil
 		}
 
 		// Update list for other keys
@@ -571,7 +574,7 @@ func (m *ArticleModel) View() string {
 		helpText := "Are you sure you want to delete all non-favorite articles from this feed? [y]es / [n]o"
 		help = "\n" + confirmStyle.Render(helpText)
 	} else {
-		helpText1 := "j/k: navigate articles | H/L: prev/next page | PgUp/PgDn: scroll content | g/home: go to start | G/end: go to end | o: open in browser"
+		helpText1 := "j/k: navigate articles | H/L: prev/next page | PgUp/PgDn: scroll half page | g/home: go to start | G/end: go to end | o: open in browser"
 		helpText2 := "r: mark read | u: mark unread | f: toggle favorite | d: delete | D: delete all non-favorites | h/Esc: back | q: quit"
 		help = "\n" + helpStyle.Render(helpText1) + "\n" + helpStyle.Render(helpText2)
 	}

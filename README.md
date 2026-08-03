@@ -117,7 +117,7 @@ Configuration file: `~/.config/noodle/config.json`
 ### Article View
 - `j`/`k` or `↓`/`↑`: Navigate articles
 - `H`/`L`: Jump to previous/next page
-- `PgUp`/`PgDn`: Scroll article content
+- `PgUp`/`PgDn`: Scroll article content (half page)
 - `o`: Open article in browser (auto-marks as read)
 - `r`: Mark article as read
 - `u`: Mark article as unread

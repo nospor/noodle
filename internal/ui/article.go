@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
@@ -626,7 +627,51 @@ func renderArticleContent(article *database.Article) string {
 	return s.String()
 }
 
+var (
+	// tableBlockRe matches a whole <table>...</table> block (case-insensitive, dotall).
+	tableBlockRe = regexp.MustCompile(`(?si)<table[^>]*>.*?</table>`)
+	// tableRowRe extracts the inner HTML of each <tr>...</tr>.
+	tableRowRe = regexp.MustCompile(`(?si)<tr[^>]*>(.*?)</tr>`)
+	// tableCellRe extracts the inner HTML of each <td>/<th> cell.
+	tableCellRe = regexp.MustCompile(`(?si)<t[dh][^>]*>(.*?)</t[dh]>`)
+	// anyTagRe strips any remaining HTML tag.
+	anyTagRe = regexp.MustCompile(`<[^>]+>`)
+)
+
+// extractCellText returns the plain-text content of a table cell's inner HTML.
+func extractCellText(cellHTML string) string {
+	plain := anyTagRe.ReplaceAllString(cellHTML, " ")
+	plain = html.UnescapeString(plain)
+	return strings.TrimSpace(strings.Join(strings.Fields(plain), " "))
+}
+
+// formatTable converts a full <table>...</table> HTML block into tab-separated
+// plain-text rows, one row per line, columns separated by tabs.
+func formatTable(tableHTML string) string {
+	var rows []string
+	for _, rowMatch := range tableRowRe.FindAllStringSubmatch(tableHTML, -1) {
+		rowInner := rowMatch[1]
+		var cells []string
+		for _, cellMatch := range tableCellRe.FindAllStringSubmatch(rowInner, -1) {
+			text := extractCellText(cellMatch[1])
+			if text != "" {
+				cells = append(cells, text)
+			}
+		}
+		if len(cells) > 0 {
+			rows = append(rows, strings.Join(cells, "\t"))
+		}
+	}
+	return "\n" + strings.Join(rows, "\n") + "\n"
+}
+
 func stripHTML(input string) string {
+	// Pre-process tables BEFORE any block-tag logic. This replaces every
+	// <table>...</table> with tab-separated plain text so that <p> or <br>
+	// tags nested inside <td> cells don't introduce spurious newlines that
+	// would otherwise split each cell onto its own line.
+	input = tableBlockRe.ReplaceAllStringFunc(input, formatTable)
+
 	// Before stripping tags, convert block-level elements to newlines so that
 	// list items, paragraphs, line-breaks, etc. are preserved as separate lines.
 	blockTags := []string{
@@ -664,14 +709,20 @@ func stripHTML(input string) string {
 	decoded := html.UnescapeString(result.String())
 
 	// Collapse runs of 3+ newlines into 2 (one blank line), and
-	// runs of spaces/tabs on a line into a single space, so that
+	// runs of spaces on a line into a single space, so that
 	// HTML with lots of whitespace (e.g. GitHub feeds) doesn't
 	// produce a wall of empty lines.
 	lines := strings.Split(decoded, "\n")
 	var cleaned []string
 	blankRun := 0
 	for _, line := range lines {
-		line = strings.Join(strings.Fields(line), " ") // collapse inline whitespace
+		// Collapse spaces within each tab-separated segment but preserve tabs
+		// (tabs are used as column separators for table cells).
+		segments := strings.Split(line, "\t")
+		for i, seg := range segments {
+			segments[i] = strings.Join(strings.Fields(seg), " ")
+		}
+		line = strings.Join(segments, "\t")
 		if line == "" {
 			blankRun++
 			if blankRun <= 1 {

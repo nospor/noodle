@@ -62,10 +62,11 @@ func NewArticleModel(state *AppState) *ArticleModel {
 	m.contentViewport = viewport.New(0, 0)
 
 	// Set width/height if available
+	// Use height-8 to account for borders (2), padding (2), title row (1), help text (2), message (1)
 	if state.Width > 0 && state.Height > 0 {
 		leftWidth := state.Width / 2
 		rightWidth := state.Width - leftWidth - 4
-		contentHeight := state.Height - 6
+		contentHeight := state.Height - 8
 		m.articlesList.SetWidth(leftWidth - 4)
 		m.articlesList.SetHeight(contentHeight)
 		m.contentViewport.Width = rightWidth - 6
@@ -160,7 +161,7 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.Height = msg.Height
 		leftWidth := msg.Width / 2
 		rightWidth := msg.Width - leftWidth - 4
-		contentHeight := msg.Height - 6
+		contentHeight := msg.Height - 8
 		m.articlesList.SetWidth(leftWidth - 4)
 		m.articlesList.SetHeight(contentHeight)
 		m.contentViewport.Width = rightWidth - 6
@@ -534,14 +535,20 @@ func (m *ArticleModel) View() string {
 
 	var s strings.Builder
 
+	// Both panes use the same height so they render consistently and don't overflow.
+	// paneStyle has 1-cell padding top/bottom (2 lines) + 1-cell border top/bottom (2 lines) = 4 overhead.
+	// The inner content height is m.height - 8 (matching list/viewport sizes set above),
+	// so the total pane height is (m.height - 8) + 4 = m.height - 4, leaving room for the help text.
+	paneHeight := m.height - 4
+
 	// Articles pane
 	articlesView := m.articlesList.View()
 	articlesTitle := "Articles"
-	articlesPane := paneStyle.Width(m.width/2 - 2).Render(articlesTitle + "\n\n" + articlesView)
+	articlesPane := paneStyle.Width(m.width/2 - 2).Height(paneHeight).Render(articlesTitle + "\n\n" + articlesView)
 
-	// Content pane - fixed height matching articles pane
+	// Content pane
 	contentTitle := "Content"
-	contentPane := paneStyle.Width(m.width/2 - 2).Height(m.height - 6).Render(contentTitle + "\n\n" + m.contentViewport.View())
+	contentPane := paneStyle.Width(m.width/2 - 2).Height(paneHeight).Render(contentTitle + "\n\n" + m.contentViewport.View())
 
 	// Combine panes
 	s.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, articlesPane, contentPane))

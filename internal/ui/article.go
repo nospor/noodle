@@ -629,7 +629,27 @@ func stripHTML(html string) string {
 			result.WriteRune(r)
 		}
 	}
-	return strings.TrimSpace(result.String())
+
+	// Collapse runs of 3+ newlines into 2 (one blank line), and
+	// runs of spaces/tabs on a line into a single space, so that
+	// HTML with lots of whitespace (e.g. GitHub feeds) doesn't
+	// produce a wall of empty lines.
+	lines := strings.Split(result.String(), "\n")
+	var cleaned []string
+	blankRun := 0
+	for _, line := range lines {
+		line = strings.Join(strings.Fields(line), " ") // collapse inline whitespace
+		if line == "" {
+			blankRun++
+			if blankRun <= 1 {
+				cleaned = append(cleaned, "")
+			}
+		} else {
+			blankRun = 0
+			cleaned = append(cleaned, line)
+		}
+	}
+	return strings.TrimSpace(strings.Join(cleaned, "\n"))
 }
 
 func openBrowser(url string) error {

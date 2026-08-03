@@ -1,4 +1,22 @@
 
+## [0.8.5] - 2026-08-03
+
+### Bug Fixes
+
+- Normalize whitespace in stripHTML to fix GitHub feed rendering
+- Correct pane heights in article view to prevent top bar clipping
+- Preserve newlines for block-level HTML elements in article content
+- Decode HTML entities in article content renderer
+- Render HTML tables as tab-separated columns in article view
+
+### Other
+
+- Change article view scroll increment to half-page
+
+### Miscellaneous Tasks
+
+- Update CHANGELOG.md for v0.8.4 [skip ci]
+
 ## [0.8.4] - 2026-05-25
 
 ### Features

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"html"
 	"os/exec"
 	"strings"
 	"time"
@@ -622,7 +623,7 @@ func renderArticleContent(article *database.Article) string {
 	return s.String()
 }
 
-func stripHTML(html string) string {
+func stripHTML(input string) string {
 	// Before stripping tags, convert block-level elements to newlines so that
 	// list items, paragraphs, line-breaks, etc. are preserved as separate lines.
 	blockTags := []string{
@@ -640,13 +641,13 @@ func stripHTML(html string) string {
 		"<h4", "<H4", "<h5", "<H5", "<h6", "<H6",
 	}
 	for _, tag := range blockTags {
-		html = strings.ReplaceAll(html, tag, "\n"+tag)
+		input = strings.ReplaceAll(input, tag, "\n"+tag)
 	}
 
 	// Now strip all remaining HTML tags character by character.
 	var result strings.Builder
 	inTag := false
-	for _, r := range html {
+	for _, r := range input {
 		if r == '<' {
 			inTag = true
 		} else if r == '>' {
@@ -656,11 +657,14 @@ func stripHTML(html string) string {
 		}
 	}
 
+	// Decode HTML entities (e.g. &nbsp; -> ' ', &amp; -> '&', &lt; -> '<').
+	decoded := html.UnescapeString(result.String())
+
 	// Collapse runs of 3+ newlines into 2 (one blank line), and
 	// runs of spaces/tabs on a line into a single space, so that
 	// HTML with lots of whitespace (e.g. GitHub feeds) doesn't
 	// produce a wall of empty lines.
-	lines := strings.Split(result.String(), "\n")
+	lines := strings.Split(decoded, "\n")
 	var cleaned []string
 	blankRun := 0
 	for _, line := range lines {

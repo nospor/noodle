@@ -1,4 +1,14 @@
 
+## [0.8.6] - 2026-10-29
+
+### Features
+
+- Show Wykop comments in the article view without storing them
+
+### Miscellaneous Tasks
+
+- Update CHANGELOG.md for v0.8.5 [skip ci]
+
 ## [0.8.5] - 2026-08-03
 
 ### Bug Fixes

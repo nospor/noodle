@@ -14,6 +14,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"noodle/internal/database"
+	"noodle/internal/wykop"
 )
 
 type ArticleModel struct {
@@ -26,6 +27,14 @@ type ArticleModel struct {
 	timerArticleID       int64      // Track which article the timer is for
 	confirmDelete        bool       // true when waiting for delete confirmation for favorite article
 	confirmBulkDelete    bool       // true when waiting for bulk delete confirmation
+	commentsOpen         bool
+	commentsLoading      bool
+	commentsGen          int
+	comments             []wykop.Comment
+	commentsNextURL      string
+	commentsErr          string
+	commentsHint         string
+	commentsViewport     viewport.Model
 }
 
 type loadArticleContentMsg struct {
@@ -62,6 +71,7 @@ func NewArticleModel(state *AppState) *ArticleModel {
 
 	// Initialize content viewport
 	m.contentViewport = viewport.New(0, 0)
+	m.commentsViewport = viewport.New(0, 0)
 
 	// Set width/height if available
 	// Use height-8 to account for borders (2), padding (2), title row (1), help text (2), message (1)
@@ -169,9 +179,16 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.contentViewport.Width = rightWidth - 6
 		m.contentViewport.Height = contentHeight
 		m.updateContentViewport()
+		if m.commentsOpen {
+			m.syncCommentsView(false)
+		}
 		return m, nil
 
 	case loadArticleContentMsg:
+		return m, nil
+
+	case commentsPageMsg:
+		m.handleCommentsPage(msg)
 		return m, nil
 
 	case autoMarkReadCheckMsg:
@@ -340,6 +357,10 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		if m.commentsOpen {
+			return m.updateCommentsKeys(msg)
+		}
+
 		if m.state.Error != "" {
 			m.state.Error = ""
 			return m, nil
@@ -408,6 +429,12 @@ func (m *ArticleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.state.CurrentArticle != nil {
 				return m, m.toggleFavorite(m.state.CurrentArticle.ID, !m.state.CurrentArticle.IsFavorite)
 			}
+
+		case msg.String() == "c":
+			if m.isWykopFeed() {
+				return m, m.openComments()
+			}
+			return m, nil
 
 		case msg.String() == "d":
 			if m.state.CurrentArticle != nil {
@@ -537,6 +564,9 @@ func (m *ArticleModel) View() string {
 	if m.width == 0 {
 		return "Loading..."
 	}
+	if m.commentsOpen {
+		return m.commentsPopupView()
+	}
 
 	var s strings.Builder
 
@@ -577,6 +607,9 @@ func (m *ArticleModel) View() string {
 	} else {
 		helpText1 := "j/k: navigate articles | H/L: prev/next page | PgUp/PgDn: scroll half page | g/home: go to start | G/end: go to end | o: open in browser"
 		helpText2 := "r: mark read | u: mark unread | f: toggle favorite | d: delete | D: delete all non-favorites | h/Esc: back | q: quit"
+		if m.isWykopFeed() {
+			helpText2 = "r: mark read | u: unread | f: favorite | c: comments | d: delete | D: delete non-favorites | h/Esc: back | q: quit"
+		}
 		help = "\n" + helpStyle.Render(helpText1) + "\n" + helpStyle.Render(helpText2)
 	}
 	s.WriteString(help)

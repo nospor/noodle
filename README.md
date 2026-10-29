@@ -28,6 +28,7 @@ A fast and elegant RSS/Atom reader designed for people who love living in the co
 - **Toggle favorite**: Press `f` to star/unstar articles
 - **Delete articles**: Press `x` to delete articles
 - **Open in browser**: Press `o` to open article URL in your default browser
+- **Wykop comments**: On a `wykop.pl` feed, press `c` in the article view to open comments for the current link. They are loaded for that viewing only and are not saved in the database. The popup lists comments present on the public link page; Wykop's own total can be higher, because the rest of the thread is filled in by the site after login.
 - **Auto-mark as read**: Articles automatically marked as read after viewing for configured time (default: 5 seconds)
 - **Auto-mark on open**: Articles marked as read when opened in browser
 
@@ -124,7 +125,15 @@ Configuration file: `~/.config/noodle/config.json`
 - `f`: Toggle favorite
 - `x`: Delete article
 - `h`/`Esc` or `←`: Return to main view
+- `c`: Open Wykop comments for the current article (`wykop.pl` feeds only)
 - `q` or `Ctrl+C`: Quit
+
+### Wykop comments popup
+- `j`/`k` or `↓`/`↑`: Scroll comments
+- `PgUp`/`PgDn`: Scroll half a page
+- `G` or `End`: Jump to the bottom
+- `m`: Load the next page once you are at the bottom
+- `c` or `Esc`: Close the popup and discard the comments
 
 ## Data Storage
 
@@ -137,6 +146,7 @@ Configuration file: `~/.config/noodle/config.json`
 - `github.com/charmbracelet/bubbles` - UI components
 - `github.com/charmbracelet/lipgloss` - Styling
 - `github.com/mmcdole/gofeed` - RSS/Atom parser
+- `github.com/PuerkitoBio/goquery` - HTML parser used for Wykop comments
 - `github.com/mattn/go-sqlite3` - SQLite driver
 - `github.com/spf13/afero` - File system abstraction
 
